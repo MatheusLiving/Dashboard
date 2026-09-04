@@ -1,0 +1,57 @@
+/*
+ * Estilos próprios que complementam o Tailwind.
+ * Em desenvolvimento o Tailwind vem do CDN; ver o README para o build local.
+ */
+
+:root {
+    --marinho: #1F3864;
+    --marinho-claro: #DCE6F1;
+}
+
+html {
+    -webkit-text-size-adjust: 100%;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+        "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+}
+
+/* Barra de deslocamento discreta nas listas e colunas do quadro. */
+.scroll-fino {
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
+}
+
+.scroll-fino::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.scroll-fino::-webkit-scrollbar-thumb {
+    background-color: #cbd5e1;
+    border-radius: 9999px;
+}
+
+.scroll-fino::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+/* Realce de foco coerente em toda a aplicação. */
+:focus-visible {
+    outline: 2px solid var(--marinho);
+    outline-offset: 2px;
+}
+
+/* Impressão: sem navegação nem sombras. */
+@media print {
+    aside,
+    header button,
+    footer {
+        display: none !important;
+    }
+
+    body {
+        background: #fff;
+    }
+}

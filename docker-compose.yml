@@ -1,0 +1,62 @@
+# Ambiente de desenvolvimento opcional.
+#
+#   docker compose up -d          arranca tudo
+#   docker compose up -d mysql    arranca apenas a base de dados
+#
+# A aplicação fica em http://localhost:8080 e o phpMyAdmin em http://localhost:8081.
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+    container_name: relatorio_ti_app
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    volumes:
+      - .:/var/www/html
+    environment:
+      DB_HOST: mysql
+      DB_PORT: 3306
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  mysql:
+    image: mysql:8.0
+    container_name: relatorio_ti_mysql
+    restart: unless-stopped
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root}
+      MYSQL_DATABASE: ${DB_DATABASE:-relatorio_ti}
+      MYSQL_USER: ${DB_USERNAME:-relatorio}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-relatorio}
+    volumes:
+      - mysql_dados:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${DB_ROOT_PASSWORD:-root}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+  phpmyadmin:
+    image: phpmyadmin:5
+    container_name: relatorio_ti_phpmyadmin
+    restart: unless-stopped
+    ports:
+      - "8081:80"
+    environment:
+      PMA_HOST: mysql
+      PMA_PORT: 3306
+      UPLOAD_LIMIT: 64M
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+volumes:
+  mysql_dados:

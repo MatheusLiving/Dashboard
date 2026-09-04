@@ -1,0 +1,26 @@
+# Reescreve todos os pedidos para o front-controller, exceto ficheiros reais.
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Remove a barra final, salvo quando corresponde a uma pasta existente.
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^(.+)/$ /$1 [L,R=301]
+
+    # Ficheiros e pastas existentes são servidos diretamente (CSS, JS, imagens).
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^ index.php [L]
+</IfModule>
+
+# Sem listagem de diretórios.
+Options -Indexes
+
+# Nada de aceder a ficheiros de configuração ou de ambiente por engano.
+<FilesMatch "^\.(env|git)">
+    Require all denied
+</FilesMatch>
+
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+</IfModule>

@@ -1,0 +1,24 @@
+{
+    "name": "ti/relatorio-semanal",
+    "description": "Aplicação interna do Departamento de TI: quadro Kanban e geração do Relatório Semanal em .docx",
+    "type": "project",
+    "license": "proprietary",
+    "require": {
+        "php": ">=8.2",
+        "ext-pdo": "*",
+        "ext-mbstring": "*",
+        "ext-zip": "*",
+        "ext-dom": "*",
+        "phpoffice/phpword": "^1.2",
+        "vlucas/phpdotenv": "^5.6"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "src/"
+        }
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "sort-packages": true
+    }
+}

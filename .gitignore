@@ -1,0 +1,11 @@
+/vendor/
+/.env
+/storage/reports/*
+!/storage/reports/.gitkeep
+/storage/logs/*
+!/storage/logs/.gitkeep
+/public/uploads/*
+!/public/uploads/.gitkeep
+.DS_Store
+Thumbs.db
+*.bak-claude
