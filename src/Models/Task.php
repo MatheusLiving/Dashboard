@@ -80,8 +80,11 @@ final class Task
         }
 
         if (!empty($filtros['procura'])) {
-            $condicoes[]           = '(t.titulo LIKE :procura OR t.descricao LIKE :procura)';
-            $parametros[':procura'] = '%' . $filtros['procura'] . '%';
+            // Com prepared statements reais cada marcador só pode aparecer uma
+            // vez, por isso o mesmo termo segue em dois marcadores distintos.
+            $condicoes[]                      = '(t.titulo LIKE :procura_titulo OR t.descricao LIKE :procura_descricao)';
+            $parametros[':procura_titulo']    = '%' . $filtros['procura'] . '%';
+            $parametros[':procura_descricao'] = '%' . $filtros['procura'] . '%';
         }
 
         $onde = $condicoes === [] ? '' : ' WHERE ' . implode(' AND ', $condicoes);

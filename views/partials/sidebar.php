@@ -19,7 +19,7 @@ $navegacao = [
         'grupo' => 'Trabalho',
         'itens' => [
             ['rotulo' => 'Painel',     'href' => '/',           'icone' => 'grelha',    'disponivel' => true],
-            ['rotulo' => 'Quadro',     'href' => '/kanban',     'icone' => 'colunas',   'disponivel' => false],
+            ['rotulo' => 'Quadro',     'href' => '/kanban',     'icone' => 'colunas',   'disponivel' => true],
             ['rotulo' => 'Backlog',    'href' => '/backlog',    'icone' => 'lista',     'disponivel' => false],
             ['rotulo' => 'Projetos',   'href' => '/projetos',   'icone' => 'pasta',     'disponivel' => false],
         ],
@@ -35,7 +35,7 @@ $navegacao = [
         'grupo' => 'Administração',
         'apenasAdmin' => true,
         'itens' => [
-            ['rotulo' => 'Etiquetas',     'href' => '/tags',        'icone' => 'etiqueta',  'disponivel' => false],
+            ['rotulo' => 'Etiquetas',     'href' => '/tags',        'icone' => 'etiqueta',  'disponivel' => true],
             ['rotulo' => 'Utilizadores',  'href' => '/utilizadores', 'icone' => 'pessoas',  'disponivel' => false],
             ['rotulo' => 'Configurações', 'href' => '/configuracoes', 'icone' => 'roda',    'disponivel' => false],
             ['rotulo' => 'Auditoria',     'href' => '/auditoria',   'icone' => 'escudo',    'disponivel' => false],

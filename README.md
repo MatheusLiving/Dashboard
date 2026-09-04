@@ -15,7 +15,7 @@ O trabalho está organizado em seis fases. Cada fase é validada antes de se ava
 | Fase | Âmbito | Estado |
 |------|--------|--------|
 | 1 | Estrutura, Core, migrações, seeds, autenticação | **Concluída** |
-| 2 | Quadro Kanban: tarefas, etiquetas, arrastar e largar, registo de tempo | Por fazer |
+| 2 | Quadro Kanban: tarefas, etiquetas, arrastar e largar, registo de tempo | **Concluída** |
 | 3 | Projetos e backlog | Por fazer |
 | 4 | Relatório: formulário e pré-preenchimento automático | Por fazer |
 | 5 | Geração do `.docx` a partir do template e descarregamento | Por fazer |
@@ -155,6 +155,48 @@ gerados — fica fora do alcance direto do servidor web.
 
 ---
 
+## Quadro Kanban
+
+O quadro está em `/kanban`. As colunas vêm da tabela `board_columns` e são configuráveis;
+a coluna marcada com `is_concluida = 1` é terminal.
+
+**Arrastar e largar.** Os cartões movem-se entre colunas e reordenam-se dentro da coluna
+com SortableJS. Ao largar, o navegador envia a sequência completa de identificadores da
+coluna de destino; o servidor só aplica essa ordem às tarefas que lá estão de facto, para
+que uma sequência forjada não consiga reordenar tarefas de outras colunas.
+
+**Data de conclusão automática.** Ao entrar numa coluna terminal, a tarefa recebe a data de
+hoje em `data_conclusao`. Ao sair dela para uma coluna normal, a data é limpa — uma tarefa
+reaberta deixa de contar como concluída no relatório.
+
+**Modal da tarefa.** Um clique (ou Enter) num cartão abre a descrição, etiquetas, projeto,
+responsável, prioridade, datas, o campo «Dificuldades encontradas», o registo de tempo e o
+histórico completo de movimentos.
+
+**Registo de tempo.** O campo de duração aceita as formas usadas na prática: `90`, `1h30`,
+`1h 30m`, `2h`, `45m`, `1:30`. Cada utilizador regista apenas o seu próprio tempo — o autor
+vem sempre da sessão, nunca do pedido.
+
+**Etiquetas sem sair do modal.** O campo de etiquetas sugere as existentes à medida que se
+escreve e oferece **«+ Criar etiqueta «xyz»»** quando não há correspondência. Escrever o nome
+de uma etiqueta desativada reativa-a, que é o que o utilizador está a pedir ao escrevê-lo.
+
+**Filtros.** Responsável, etiqueta, projeto, prioridade e pesquisa livre, aplicados no
+servidor e refletidos na query string — o estado do quadro é partilhável por URL. Valores
+fora das listas conhecidas são simplesmente ignorados.
+
+**Permissões.** Qualquer utilizador autenticado cria, edita e move tarefas: o quadro é da
+equipa. Eliminar uma tarefa é reservado ao administrador e a quem a criou; eliminar um
+registo de tempo, ao administrador e ao autor do registo. A página de gestão de etiquetas
+(`/tags`) é só para administradores, mas a criação rápida a partir do modal está aberta a
+todos, porque é aí que as etiquetas nascem no dia a dia.
+
+**Auditoria.** Criações, edições, movimentos e eliminações de tarefas, etiquetas e registos
+de tempo ficam em `audit_log` com o estado antes e depois. A auditoria nunca faz falhar a
+operação: se o registo falhar, o erro vai para o log e o trabalho do utilizador segue.
+
+---
+
 ## Decisões de arquitetura
 
 **Semanas em ISO-8601.** A semana vai de segunda a domingo e a semana 1 é a que contém a
@@ -171,6 +213,11 @@ de que endereço foi iniciada cada uma — coisas que os ficheiros de sessão do
 
 **Utilizadores nunca são apagados.** A desativação faz-se com `ativo = 0`, para que o histórico
 de tarefas e relatórios continue a ter autor identificável.
+
+**Marcadores nomeados usados uma só vez.** Com `ATTR_EMULATE_PREPARES = false` o MySQL prepara
+as consultas de verdade, e cada marcador nomeado só pode aparecer uma vez no SQL. Uma condição
+que compare o mesmo valor em duas colunas precisa de dois marcadores distintos — ver o filtro
+de pesquisa em `Task::paraQuadro()`.
 
 ---
 

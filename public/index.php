@@ -11,6 +11,9 @@ declare(strict_types=1);
 
 use App\Controllers\AuthController;
 use App\Controllers\DashboardController;
+use App\Controllers\KanbanController;
+use App\Controllers\TagController;
+use App\Controllers\TaskController;
 use App\Core\Auth;
 use App\Core\Config;
 use App\Core\Request;
@@ -52,6 +55,28 @@ $router->get('/', [DashboardController::class, 'index'], ['auth']);
 $router->get('/perfil', [AuthController::class, 'perfil'], ['auth']);
 $router->post('/perfil', [AuthController::class, 'guardarPerfil'], ['auth']);
 $router->post('/perfil/senha', [AuthController::class, 'alterarSenha'], ['auth']);
+
+// --- Quadro Kanban ----------------------------------------------------------
+$router->get('/kanban', [KanbanController::class, 'index'], ['auth']);
+
+// --- Tarefas (JSON, consumidas pelo quadro) ---------------------------------
+$router->get('/api/tarefas/{id}', [TaskController::class, 'mostrar'], ['auth']);
+$router->post('/api/tarefas', [TaskController::class, 'criar'], ['auth']);
+$router->post('/api/tarefas/{id}', [TaskController::class, 'atualizar'], ['auth']);
+$router->post('/api/tarefas/{id}/mover', [TaskController::class, 'mover'], ['auth']);
+$router->post('/api/tarefas/{id}/eliminar', [TaskController::class, 'eliminar'], ['auth']);
+$router->post('/api/tarefas/{id}/tempo', [TaskController::class, 'registarTempo'], ['auth']);
+$router->post('/api/tempo/{id}/eliminar', [TaskController::class, 'eliminarTempo'], ['auth']);
+
+// --- Etiquetas --------------------------------------------------------------
+$router->get('/api/tags', [TagController::class, 'apiListar'], ['auth']);
+$router->post('/api/tags', [TagController::class, 'apiCriar'], ['auth']);
+
+$router->get('/tags', [TagController::class, 'index'], ['admin']);
+$router->post('/tags', [TagController::class, 'criar'], ['admin']);
+$router->post('/tags/{id}', [TagController::class, 'atualizar'], ['admin']);
+$router->post('/tags/{id}/alternar', [TagController::class, 'alternar'], ['admin']);
+$router->post('/tags/{id}/eliminar', [TagController::class, 'eliminar'], ['admin']);
 
 try {
     $router->despachar();
