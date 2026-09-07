@@ -20,8 +20,8 @@ $navegacao = [
         'itens' => [
             ['rotulo' => 'Painel',     'href' => '/',           'icone' => 'grelha',    'disponivel' => true],
             ['rotulo' => 'Quadro',     'href' => '/kanban',     'icone' => 'colunas',   'disponivel' => true],
-            ['rotulo' => 'Backlog',    'href' => '/backlog',    'icone' => 'lista',     'disponivel' => false],
-            ['rotulo' => 'Projetos',   'href' => '/projetos',   'icone' => 'pasta',     'disponivel' => false],
+            ['rotulo' => 'Backlog',    'href' => '/backlog',    'icone' => 'lista',     'disponivel' => true],
+            ['rotulo' => 'Projetos',   'href' => '/projetos',   'icone' => 'pasta',     'disponivel' => true],
         ],
     ],
     [

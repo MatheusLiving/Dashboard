@@ -10,8 +10,10 @@ declare(strict_types=1);
  */
 
 use App\Controllers\AuthController;
+use App\Controllers\BacklogController;
 use App\Controllers\DashboardController;
 use App\Controllers\KanbanController;
+use App\Controllers\ProjectController;
 use App\Controllers\TagController;
 use App\Controllers\TaskController;
 use App\Core\Auth;
@@ -67,6 +69,16 @@ $router->post('/api/tarefas/{id}/mover', [TaskController::class, 'mover'], ['aut
 $router->post('/api/tarefas/{id}/eliminar', [TaskController::class, 'eliminar'], ['auth']);
 $router->post('/api/tarefas/{id}/tempo', [TaskController::class, 'registarTempo'], ['auth']);
 $router->post('/api/tempo/{id}/eliminar', [TaskController::class, 'eliminarTempo'], ['auth']);
+
+// --- Backlog ----------------------------------------------------------------
+$router->get('/backlog', [BacklogController::class, 'index'], ['auth']);
+
+// --- Projetos ---------------------------------------------------------------
+$router->get('/projetos', [ProjectController::class, 'index'], ['auth']);
+$router->post('/projetos', [ProjectController::class, 'criar'], ['auth']);
+$router->get('/projetos/{id}', [ProjectController::class, 'mostrar'], ['auth']);
+$router->post('/projetos/{id}', [ProjectController::class, 'atualizar'], ['auth']);
+$router->post('/projetos/{id}/arquivar', [ProjectController::class, 'alternarArquivo'], ['auth']);
 
 // --- Etiquetas --------------------------------------------------------------
 $router->get('/api/tags', [TagController::class, 'apiListar'], ['auth']);

@@ -16,7 +16,7 @@ O trabalho está organizado em seis fases. Cada fase é validada antes de se ava
 |------|--------|--------|
 | 1 | Estrutura, Core, migrações, seeds, autenticação | **Concluída** |
 | 2 | Quadro Kanban: tarefas, etiquetas, arrastar e largar, registo de tempo | **Concluída** |
-| 3 | Projetos e backlog | Por fazer |
+| 3 | Projetos e backlog | **Concluída** |
 | 4 | Relatório: formulário e pré-preenchimento automático | Por fazer |
 | 5 | Geração do `.docx` a partir do template e descarregamento | Por fazer |
 | 6 | Configurações, auditoria, gestão de utilizadores, acabamentos | Por fazer |
@@ -194,6 +194,42 @@ todos, porque é aí que as etiquetas nascem no dia a dia.
 **Auditoria.** Criações, edições, movimentos e eliminações de tarefas, etiquetas e registos
 de tempo ficam em `audit_log` com o estado antes e depois. A auditoria nunca faz falhar a
 operação: se o registo falhar, o erro vai para o log e o trabalho do utilizador segue.
+
+---
+
+## Projetos e backlog
+
+### Projetos (`/projetos`)
+
+Cada projeto tem responsável, estado, prioridade, datas e um **progresso declarado** (cursor
+de 0 a 100). Ao lado dele é sempre apresentado o **progresso calculado** — tarefas em coluna
+terminal a dividir pelo total — e o **desvio** entre os dois, em pontos percentuais. Um desvio
+de 20 pontos ou mais fica assinalado a âmbar.
+
+Os dois números respondem a perguntas diferentes e por isso coexistem: o declarado é o
+julgamento do responsável, que pode incluir trabalho não refletido em tarefas; o calculado é
+o que o quadro consegue provar. Quando divergem muito, é sinal de que uma das duas coisas
+precisa de atenção.
+
+A página de detalhe (`/projetos/{id}`) mostra as tarefas associadas agrupadas pela coluna do
+quadro, com responsável e tempo dedicado, e permite editar o projeto no mesmo ecrã.
+
+**Arquivar em vez de apagar.** Um projeto arquivado sai da listagem e dos seletores de tarefa,
+mas as tarefas que já lhe estavam associadas continuam ligadas — o histórico não se perde e os
+relatórios antigos continuam a fazer sentido. Arquivar é reservado ao administrador e ao
+responsável do projeto; criar e editar está aberto a toda a equipa.
+
+O prazo anterior à data de início é rejeitado: seria um erro de digitação a passar em silêncio.
+
+### Backlog (`/backlog`)
+
+Reúne as tarefas da primeira coluna do quadro — por convenção, a coluna de backlog —
+agrupadas por projeto, com as tarefas sem projeto no fim.
+
+À direita ficam as colunas ativas do quadro como zonas de largada: arrastar uma tarefa para
+uma delas grava o movimento pelo mesmo ponto de entrada que o quadro usa, incluindo o
+preenchimento automático da data de conclusão se a coluna for terminal. A tarefa desaparece
+então do backlog, e um grupo de projeto que fique sem tarefas sai da página.
 
 ---
 

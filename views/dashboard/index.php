@@ -117,10 +117,15 @@ $rotulosAtividade = [
         </section>
     </div>
 
-    <div class="rounded-xl border border-dashed border-slate-300 bg-white px-6 py-5">
-        <p class="text-sm font-medium text-slate-700">Fase 1 concluída</p>
-        <p class="mt-1 text-xs text-slate-500">
-            O quadro Kanban, os projetos e o gerador de relatórios entram nas fases seguintes.
-        </p>
+    <div class="flex flex-wrap gap-2">
+        <a href="/kanban" class="rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-600 hover:border-marinho-300 hover:text-marinho-800">
+            Abrir o quadro
+        </a>
+        <a href="/backlog" class="rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-600 hover:border-marinho-300 hover:text-marinho-800">
+            Ver o backlog
+        </a>
+        <a href="/projetos" class="rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-600 hover:border-marinho-300 hover:text-marinho-800">
+            Projetos
+        </a>
     </div>
 </div>
