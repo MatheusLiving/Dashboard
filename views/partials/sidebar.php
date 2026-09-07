@@ -27,8 +27,8 @@ $navegacao = [
     [
         'grupo' => 'Relatórios',
         'itens' => [
-            ['rotulo' => 'Relatórios',      'href' => '/relatorios',      'icone' => 'documento', 'disponivel' => false],
-            ['rotulo' => 'Novo relatório',  'href' => '/relatorios/nova', 'icone' => 'mais',      'disponivel' => false],
+            ['rotulo' => 'Relatórios',      'href' => '/relatorios',      'icone' => 'documento', 'disponivel' => true],
+            ['rotulo' => 'Novo relatório',  'href' => '/relatorios/nova', 'icone' => 'mais',      'disponivel' => true],
         ],
     ],
     [

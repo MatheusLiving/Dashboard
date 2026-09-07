@@ -17,7 +17,7 @@ O trabalho está organizado em seis fases. Cada fase é validada antes de se ava
 | 1 | Estrutura, Core, migrações, seeds, autenticação | **Concluída** |
 | 2 | Quadro Kanban: tarefas, etiquetas, arrastar e largar, registo de tempo | **Concluída** |
 | 3 | Projetos e backlog | **Concluída** |
-| 4 | Relatório: formulário e pré-preenchimento automático | Por fazer |
+| 4 | Relatório: formulário e pré-preenchimento automático | **Concluída** |
 | 5 | Geração do `.docx` a partir do template e descarregamento | Por fazer |
 | 6 | Configurações, auditoria, gestão de utilizadores, acabamentos | Por fazer |
 
@@ -108,6 +108,12 @@ Criadas pelo seed `01_users`. **Altere-as antes de qualquer utilização real.**
 O seed cria ainda 5 colunas de quadro, 7 etiquetas, 3 projetos e 16 tarefas com registos de
 tempo dentro da **semana ISO corrente**, para que o gerador de relatórios possa ser testado
 sem qualquer preparação adicional.
+
+Numa reexecução, as tarefas já existem e não são recriadas — mas as datas dos registos de
+tempo e do histórico são **deslocadas para a semana corrente**, para que os dados de exemplo
+continuem a servir para testar o relatório mesmo semanas depois da primeira instalação.
+Só as tarefas do seed são tocadas; o que a equipa tiver criado entretanto fica intacto.
+Registos que o deslocamento empurraria para depois de hoje ficam no dia de hoje.
 
 ---
 
@@ -230,6 +236,58 @@ agrupadas por projeto, com as tarefas sem projeto no fim.
 uma delas grava o movimento pelo mesmo ponto de entrada que o quadro usa, incluindo o
 preenchimento automático da data de conclusão se a coluna for terminal. A tarefa desaparece
 então do backlog, e um grupo de projeto que fique sem tarefas sai da página.
+
+---
+
+## Relatório semanal
+
+Um relatório por colaborador e por semana ISO — regra garantida pela chave única
+`(user_id, ano, numero_semana)` da tabela `reports`, e não apenas pela aplicação.
+
+### Pré-preenchimento
+
+Ao abrir `/relatorios/nova`, o `ReportBuilder` reúne do quadro o que o colaborador teria de
+escrever à mão:
+
+| Secção | O que traz |
+|---|---|
+| §2 Atividades | tarefas com registo de tempo ou movimento na semana, com a data do trabalho, a coluna atual e a soma dos minutos |
+| §3 Incidentes | tarefas da semana com as etiquetas configuradas como incidente (`suporte`, `incidente`), com a nota de resolução tirada do histórico de conclusão |
+| §4 Projetos | projetos ativos de que é responsável ou onde trabalhou, com o progresso e os próximos passos deduzidos das tarefas por fechar |
+| §7 Próxima semana | tarefas suas em colunas ativas, ordenadas por prioridade |
+| Dificuldades | o campo «Dificuldades» das tarefas em que trabalhou, reunido num texto |
+
+Tudo o que sai daqui é **proposta**: cada linha é editável, removível, e podem acrescentar-se
+linhas manuais sem recarregar a página. O botão «Repor a partir do quadro» reconstrói uma
+secção para quem apagou linhas a mais.
+
+Quando uma tarefa não tem projeto, a coluna «Projeto / Área» é preenchida com as etiquetas —
+que é o que identifica a área nesse caso.
+
+### Sugestões (§6)
+
+A resposta por omissão é **«Não»**. O campo de texto só aparece ao escolher «Sim», e aí passa a
+ser obrigatório. Com «Não», grava-se `tem_sugestao = 0` e `sugestao_texto = NULL`, e o relatório
+apresenta «Não há sugestões nesta semana.»
+
+### Rascunho e entrega
+
+**Guardar rascunho** deixa tudo editável e não exige o resumo executivo — um relatório
+escreve-se ao longo da semana.
+
+**Entregar** exige resumo executivo com pelo menos 20 caracteres e **congela** o conteúdo:
+a partir daí o relatório não volta a ser gravado nem eliminado, e abrir a semana redireciona
+para a vista em modo de leitura.
+
+O congelamento é real, não apenas um estado. As linhas em `report_*` são cópias do texto:
+renomear um projeto ou apagar uma tarefa depois da entrega não altera uma vírgula do que lá
+está escrito. As ligações a `tasks` e `projects` existem só para rastreabilidade e são
+anuladas com `ON DELETE SET NULL`.
+
+### Permissões
+
+Ver: o administrador vê todos os relatórios, um membro vê os seus. Editar e eliminar: **apenas
+o próprio autor**, mesmo para o administrador — um relatório é o testemunho de quem o escreveu.
 
 ---
 

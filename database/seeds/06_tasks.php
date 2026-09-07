@@ -237,6 +237,7 @@ return static function (): void {
 
     $posicoes = [];
     $criadas  = 0;
+    $titulos  = array_map(static fn (array $t): string => $t['titulo'], $tarefas);
 
     foreach ($tarefas as $tarefa) {
         // O seed é idempotente: uma tarefa com o mesmo título não é recriada.
@@ -344,4 +345,126 @@ return static function (): void {
     }
 
     echo '    · ' . $criadas . ' tarefas criadas na semana ' . Semana::rotuloCurto($semana['ano'], $semana['semana']) . PHP_EOL;
+
+    // Numa reexecução, as tarefas já existem e os registos de tempo ficaram na
+    // semana em que o seed correu pela primeira vez. Como o objetivo destes
+    // dados é permitir testar o gerador de relatórios de imediato, as datas são
+    // deslocadas para a semana corrente. Só as tarefas deste seed são tocadas:
+    // o que a equipa tiver criado entretanto fica intacto.
+    if ($criadas === 0) {
+        $deslocamento = deslocarParaSemanaCorrente($titulos, $inicio);
+
+        if ($deslocamento !== 0) {
+            echo '    · datas deslocadas ' . $deslocamento . ' dias para a semana '
+                . Semana::rotuloCurto($semana['ano'], $semana['semana']) . PHP_EOL;
+        }
+    }
 };
+
+/**
+ * Desloca as datas dos dados de exemplo para a semana corrente.
+ *
+ * Devolve o número de dias aplicado (0 se já estavam na semana certa).
+ *
+ * @param list<string> $titulos Títulos das tarefas do seed
+ */
+function deslocarParaSemanaCorrente(array $titulos, DateTimeImmutable $inicioSemana): int
+{
+    if ($titulos === []) {
+        return 0;
+    }
+
+    // Um marcador por título: a lista é fixa, mas os valores vão ligados.
+    $marcadores = [];
+    $parametros = [];
+
+    foreach (array_values($titulos) as $indice => $titulo) {
+        $marcador              = ':t' . $indice;
+        $marcadores[]          = $marcador;
+        $parametros[$marcador] = $titulo;
+    }
+
+    $lista = implode(', ', $marcadores);
+
+    // A segunda-feira da semana onde os dados estão neste momento.
+    $primeira = Database::valor(
+        'SELECT MIN(l.data) FROM task_time_logs l
+         INNER JOIN tasks t ON t.id = l.task_id
+         WHERE t.titulo IN (' . $lista . ')',
+        $parametros
+    );
+
+    if ($primeira === null) {
+        return 0;
+    }
+
+    $origem = (new DateTimeImmutable((string) $primeira))->setTime(0, 0);
+    $origem = $origem->modify('monday this week');
+    $dias   = (int) $origem->diff($inicioSemana->setTime(0, 0))->format('%r%a');
+
+    if ($dias === 0) {
+        return 0;
+    }
+
+    $parametros[':dias'] = $dias;
+
+    Database::executar(
+        'UPDATE task_time_logs l
+         INNER JOIN tasks t ON t.id = l.task_id
+         SET l.data = DATE_ADD(l.data, INTERVAL :dias DAY)
+         WHERE t.titulo IN (' . $lista . ')',
+        $parametros
+    );
+
+    Database::executar(
+        'UPDATE task_activity a
+         INNER JOIN tasks t ON t.id = a.task_id
+         SET a.created_at = DATE_ADD(a.created_at, INTERVAL :dias DAY)
+         WHERE t.titulo IN (' . $lista . ')',
+        $parametros
+    );
+
+    Database::executar(
+        'UPDATE tasks
+         SET data_inicio = DATE_ADD(data_inicio, INTERVAL :dias DAY)
+         WHERE titulo IN (' . $lista . ') AND data_inicio IS NOT NULL',
+        $parametros
+    );
+
+    Database::executar(
+        'UPDATE tasks
+         SET data_conclusao = DATE_ADD(data_conclusao, INTERVAL :dias DAY)
+         WHERE titulo IN (' . $lista . ') AND data_conclusao IS NOT NULL',
+        $parametros
+    );
+
+    // O deslocamento pode empurrar registos para depois de hoje, o que não faz
+    // sentido: ninguém regista tempo em dias que ainda não aconteceram.
+    // Esses ficam no dia de hoje.
+    unset($parametros[':dias']);
+
+    Database::executar(
+        'UPDATE task_time_logs l
+         INNER JOIN tasks t ON t.id = l.task_id
+         SET l.data = CURDATE()
+         WHERE t.titulo IN (' . $lista . ') AND l.data > CURDATE()',
+        $parametros
+    );
+
+    Database::executar(
+        'UPDATE tasks
+         SET data_conclusao = CURDATE()
+         WHERE titulo IN (' . $lista . ') AND data_conclusao > CURDATE()',
+        $parametros
+    );
+
+    Database::executar(
+        'UPDATE task_activity a
+         INNER JOIN tasks t ON t.id = a.task_id
+         SET a.created_at = NOW()
+         WHERE t.titulo IN (' . $lista . ') AND a.created_at > NOW()',
+        $parametros
+    );
+
+    return $dias;
+}

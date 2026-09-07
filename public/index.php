@@ -14,6 +14,7 @@ use App\Controllers\BacklogController;
 use App\Controllers\DashboardController;
 use App\Controllers\KanbanController;
 use App\Controllers\ProjectController;
+use App\Controllers\ReportController;
 use App\Controllers\TagController;
 use App\Controllers\TaskController;
 use App\Core\Auth;
@@ -79,6 +80,15 @@ $router->post('/projetos', [ProjectController::class, 'criar'], ['auth']);
 $router->get('/projetos/{id}', [ProjectController::class, 'mostrar'], ['auth']);
 $router->post('/projetos/{id}', [ProjectController::class, 'atualizar'], ['auth']);
 $router->post('/projetos/{id}/arquivar', [ProjectController::class, 'alternarArquivo'], ['auth']);
+
+// --- Relatório semanal ------------------------------------------------------
+// A rota de criação vem antes da de detalhe: «nova» não é um identificador.
+$router->get('/relatorios', [ReportController::class, 'index'], ['auth']);
+$router->get('/relatorios/nova', [ReportController::class, 'nova'], ['auth']);
+$router->post('/relatorios', [ReportController::class, 'guardar'], ['auth']);
+$router->get('/api/relatorios/pre-preencher', [ReportController::class, 'prePreencher'], ['auth']);
+$router->get('/relatorios/{id}', [ReportController::class, 'mostrar'], ['auth']);
+$router->post('/relatorios/{id}/eliminar', [ReportController::class, 'eliminar'], ['auth']);
 
 // --- Etiquetas --------------------------------------------------------------
 $router->get('/api/tags', [TagController::class, 'apiListar'], ['auth']);
