@@ -54,7 +54,7 @@ final class Request
     {
         $valor = $_GET[$chave] ?? null;
 
-        return is_string($valor) ? trim($valor) : $omissao;
+        return is_string($valor) ? self::normalizar($valor) : $omissao;
     }
 
     /**
@@ -64,7 +64,32 @@ final class Request
     {
         $valor = $_POST[$chave] ?? null;
 
-        return is_string($valor) ? trim($valor) : $omissao;
+        return is_string($valor) ? self::normalizar($valor) : $omissao;
+    }
+
+    /**
+     * Garante que o texto recebido é UTF-8 válido.
+     *
+     * Os navegadores enviam UTF-8 — a página declara-o — mas um pedido feito
+     * por outra via pode trazer bytes de Windows-1252. Sem esta conversão, a
+     * gravação rebentava com «Incorrect string value» e o utilizador via um
+     * erro interno em vez de uma mensagem útil.
+     */
+    public static function normalizar(string $valor): string
+    {
+        $valor = trim($valor);
+
+        if ($valor === '' || mb_check_encoding($valor, 'UTF-8')) {
+            return $valor;
+        }
+
+        $convertido = @mb_convert_encoding($valor, 'UTF-8', 'Windows-1252');
+
+        // Se nem assim resultar, ficam apenas os caracteres representáveis:
+        // mais vale texto incompleto do que uma gravação falhada.
+        return mb_check_encoding($convertido, 'UTF-8')
+            ? $convertido
+            : (string) mb_convert_encoding($valor, 'UTF-8', 'UTF-8');
     }
 
     /**
@@ -96,17 +121,36 @@ final class Request
     {
         $valor = $_POST[$chave] ?? [];
 
-        return is_array($valor) ? $valor : [];
+        return is_array($valor) ? self::normalizarArray($valor) : [];
     }
 
     /**
-     * Todos os campos de $_POST.
+     * Todos os campos de $_POST, com o texto normalizado para UTF-8.
      *
      * @return array<string, mixed>
      */
     public static function todosPost(): array
     {
-        return $_POST;
+        return self::normalizarArray($_POST);
+    }
+
+    /**
+     * Aplica a normalização de codificação a um array, incluindo aninhados.
+     *
+     * @param array<int|string, mixed> $dados
+     * @return array<int|string, mixed>
+     */
+    private static function normalizarArray(array $dados): array
+    {
+        foreach ($dados as $chave => $valor) {
+            if (is_string($valor)) {
+                $dados[$chave] = self::normalizar($valor);
+            } elseif (is_array($valor)) {
+                $dados[$chave] = self::normalizarArray($valor);
+            }
+        }
+
+        return $dados;
     }
 
     /**

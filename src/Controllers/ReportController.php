@@ -17,6 +17,7 @@ use App\Models\Setting;
 use App\Models\User;
 use App\Services\AuditLogger;
 use App\Services\DocxGenerator;
+use App\Services\Mailer;
 use App\Services\ReportBuilder;
 use InvalidArgumentException;
 use Throwable;
@@ -116,8 +117,12 @@ final class ReportController extends Controller
             'relatorio'    => $relatorio,
             'linhas'       => Report::todasAsLinhas((int) $id),
             'exportacoes'  => Report::exportacoes((int) $id),
+            'envios'       => Report::envios((int) $id),
             'rotulo'       => Semana::rotulo((int) $relatorio['ano'], (int) $relatorio['numero_semana']),
             'podeEditar'   => $this->podeEditar($relatorio),
+            'emailAtivo'   => Mailer::ativo(),
+            'assuntoEmail' => Mailer::assuntoPorOmissao($relatorio),
+            'antigos'      => Flash::antigos(),
         ]);
     }
 
@@ -314,6 +319,132 @@ final class ReportController extends Controller
         ]);
 
         Flash::sucesso('Ficheiro gerado: ' . $ficheiro['nome']);
+    }
+
+    /**
+     * Envia o relatório por correio eletrónico, com o .docx em anexo.
+     *
+     * Se ainda não houver ficheiro gerado, gera um antes de enviar: ninguém
+     * quer descobrir que o anexo faltava depois de a mensagem ter partido.
+     */
+    public function enviarEmail(string $id): void
+    {
+        $reportId  = (int) $id;
+        $relatorio = Report::porId($reportId);
+
+        if ($relatorio === null) {
+            Flash::erro('Relatório não encontrado.');
+            $this->redirecionar('/relatorios');
+        }
+
+        if (!$this->podeVer($relatorio)) {
+            Flash::erro('Não tem permissões para enviar este relatório.');
+            $this->redirecionar('/relatorios');
+        }
+
+        if (!Mailer::ativo()) {
+            Flash::erro('O envio de correio não está configurado. Consulte MAIL_* no ficheiro .env.');
+            $this->redirecionar('/relatorios/' . $reportId);
+        }
+
+        $enderecos = Mailer::separarEnderecos((string) Request::post('destinatarios', ''));
+        $assunto   = trim((string) Request::post('assunto', ''));
+        $mensagem  = (string) Request::post('mensagem', '');
+
+        $validador = Validator::para(Request::todosPost())
+            ->rotulos([
+                'destinatarios' => 'destinatários',
+                'assunto'       => 'assunto',
+                'mensagem'      => 'mensagem',
+            ])
+            ->obrigatorio('destinatarios')
+            ->obrigatorio('assunto')
+            ->maximo('assunto', 255)
+            ->maximo('mensagem', 5000)
+            ->regra(
+                'destinatarios',
+                $enderecos['invalidos'] === [],
+                'Endereços inválidos: ' . implode(', ', $enderecos['invalidos']) . '.'
+            )
+            ->regra(
+                'destinatarios',
+                $enderecos['validos'] !== [],
+                'Indique pelo menos um endereço de correio válido.'
+            )
+            ->regra(
+                'destinatarios',
+                count($enderecos['validos']) <= Mailer::MAX_DESTINATARIOS,
+                sprintf('Máximo de %d destinatários por envio.', Mailer::MAX_DESTINATARIOS)
+            );
+
+        if ($validador->falhou()) {
+            $this->voltarComErros($validador->erros(), '/relatorios/' . $reportId);
+        }
+
+        // Sem ficheiro gerado ainda, gera-se um agora.
+        if (Report::ultimaExportacao($reportId) === null) {
+            $this->gerarFicheiro($reportId);
+        }
+
+        $exportacao = Report::ultimaExportacao($reportId);
+
+        if ($exportacao === null) {
+            Flash::erro('Não foi possível preparar o ficheiro para envio.');
+            $this->redirecionar('/relatorios/' . $reportId);
+        }
+
+        $anexo = Config::raiz((string) $exportacao['caminho_arquivo']);
+        $utilizador = Auth::utilizador() ?? [];
+
+        try {
+            (new Mailer())->enviarRelatorio(
+                $relatorio,
+                $enderecos['validos'],
+                $anexo,
+                $assunto,
+                $mensagem,
+                (string) ($utilizador['nome'] ?? ''),
+                (string) ($utilizador['email'] ?? '')
+            );
+        } catch (Throwable $e) {
+            error_log('Falha no envio do relatório ' . $reportId . ': ' . $e->getMessage());
+
+            Flash::erro($e->getMessage());
+            $this->redirecionar('/relatorios/' . $reportId);
+        }
+
+        // A partir daqui a mensagem já partiu e não há como a retirar. Uma
+        // falha a registar o envio não pode passar por falha no envio: o
+        // utilizador voltaria a enviar e a chefia receberia tudo em duplicado.
+        try {
+            Report::registarEnvio(
+                $reportId,
+                (int) $exportacao['id'],
+                $enderecos['validos'],
+                $assunto,
+                $mensagem !== '' ? $mensagem : null,
+                Auth::id()
+            );
+
+            AuditLogger::registar('relatorio', $reportId, 'enviar_email', [
+                'destinatarios' => $enderecos['validos'],
+                'ficheiro'      => basename((string) $exportacao['caminho_arquivo']),
+            ]);
+
+            Flash::sucesso(sprintf(
+                'Relatório enviado para %s.',
+                implode(', ', $enderecos['validos'])
+            ));
+        } catch (Throwable $e) {
+            error_log('Envio feito mas não registado (relatório ' . $reportId . '): ' . $e->getMessage());
+
+            Flash::aviso(sprintf(
+                'O relatório foi enviado para %s, mas não foi possível registar o envio. Não reenvie.',
+                implode(', ', $enderecos['validos'])
+            ));
+        }
+
+        $this->redirecionar('/relatorios/' . $reportId);
     }
 
     /**

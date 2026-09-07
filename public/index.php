@@ -29,6 +29,26 @@ use App\Core\Session;
 use App\Core\View;
 use App\Models\Setting;
 
+// Com o servidor embutido do PHP (php -S) todos os pedidos chegam aqui, incluindo
+// os de ficheiros que existem em disco. Devolver false entrega-os ao servidor,
+// com o tipo de conteúdo correto — sem isto, o CSS e o JavaScript chegariam ao
+// navegador como HTML e seriam recusados. Com o Apache é o .htaccess que trata disto.
+if (PHP_SAPI === 'cli-server') {
+    $caminho = parse_url((string) ($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH);
+
+    if (is_string($caminho) && $caminho !== '/') {
+        $ficheiro = __DIR__ . DIRECTORY_SEPARATOR . ltrim(rawurldecode($caminho), '/\\');
+
+        // realpath resolve ".." antes da comparação: só se servem ficheiros
+        // que estejam mesmo dentro de /public.
+        $real = realpath($ficheiro);
+
+        if ($real !== false && is_file($real) && str_starts_with($real, __DIR__ . DIRECTORY_SEPARATOR)) {
+            return false;
+        }
+    }
+}
+
 require dirname(__DIR__) . '/vendor/autoload.php';
 
 Config::carregar(require dirname(__DIR__) . '/config/config.php');
@@ -96,6 +116,7 @@ $router->get('/api/relatorios/pre-preencher', [ReportController::class, 'prePree
 $router->get('/relatorios/download', [ReportController::class, 'download'], ['auth']);
 $router->get('/relatorios/{id}', [ReportController::class, 'mostrar'], ['auth']);
 $router->post('/relatorios/{id}/gerar', [ReportController::class, 'gerar'], ['auth']);
+$router->post('/relatorios/{id}/email', [ReportController::class, 'enviarEmail'], ['auth']);
 $router->post('/relatorios/{id}/eliminar', [ReportController::class, 'eliminar'], ['auth']);
 
 // --- Etiquetas --------------------------------------------------------------

@@ -58,5 +58,20 @@ services:
       mysql:
         condition: service_healthy
 
+  # Servidor de correio para desenvolvimento: apanha tudo o que a aplicação
+  # envia e mostra numa caixa de correio em http://localhost:8025.
+  # Nada sai da máquina.
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: relatorio_ti_mailpit
+    restart: unless-stopped
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    environment:
+      MP_MAX_MESSAGES: 500
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
+
 volumes:
   mysql_dados:

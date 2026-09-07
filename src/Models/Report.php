@@ -285,6 +285,62 @@ final class Report
     }
 
     /**
+     * A exportação mais recente de um relatório, ou null se ainda não houver.
+     *
+     * @return array<string, mixed>|null
+     */
+    public static function ultimaExportacao(int $reportId): ?array
+    {
+        return Database::primeiro(
+            'SELECT * FROM report_exports
+             WHERE report_id = :rid
+             ORDER BY gerado_em DESC, id DESC
+             LIMIT 1',
+            [':rid' => $reportId]
+        );
+    }
+
+    /**
+     * Envios por correio de um relatório, do mais recente ao mais antigo.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public static function envios(int $reportId): array
+    {
+        return Database::todos(
+            'SELECT e.*, u.nome AS enviado_por_nome
+             FROM report_emails e
+             LEFT JOIN users u ON u.id = e.enviado_por
+             WHERE e.report_id = :rid
+             ORDER BY e.enviado_em DESC, e.id DESC',
+            [':rid' => $reportId]
+        );
+    }
+
+    /**
+     * Regista um envio por correio eletrónico.
+     *
+     * @param list<string> $destinatarios
+     */
+    public static function registarEnvio(
+        int $reportId,
+        ?int $exportId,
+        array $destinatarios,
+        string $assunto,
+        ?string $mensagem,
+        ?int $enviadoPor
+    ): int {
+        return Database::inserir('report_emails', [
+            'report_id'     => $reportId,
+            'export_id'     => $exportId,
+            'destinatarios' => mb_substr(implode(', ', $destinatarios), 0, 1000),
+            'assunto'       => mb_substr($assunto, 0, 255),
+            'mensagem'      => $mensagem,
+            'enviado_por'   => $enviadoPor,
+        ]);
+    }
+
+    /**
      * Regista um ficheiro gerado. Nunca há substituição: cada geração é uma
      * linha nova, para que o histórico de versões se mantenha.
      */

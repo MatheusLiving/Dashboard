@@ -6,8 +6,12 @@
  * @var array<string, mixed>       $relatorio
  * @var array<string, mixed>       $linhas
  * @var list<array<string, mixed>> $exportacoes
+ * @var list<array<string, mixed>> $envios
  * @var string                     $rotulo
  * @var bool                       $podeEditar
+ * @var bool                       $emailAtivo
+ * @var string                     $assuntoEmail
+ * @var array<string, mixed>       $antigos
  */
 
 use App\Core\Csrf;
@@ -76,6 +80,109 @@ $minutos   = static fn (mixed $v): string => $v ? Semana::minutosParaTexto((int)
         <span class="mx-1">/</span>
         <span class="text-slate-600"><?= View::e(Semana::rotuloCurto((int) $relatorio['ano'], (int) $relatorio['numero_semana'])) ?></span>
     </nav>
+
+    <?php
+    // A versão mais recente do ficheiro, para os botões do topo.
+    $ultimo = $exportacoes[0] ?? null;
+    ?>
+
+    <!-- Ações sobre o ficheiro -->
+    <div class="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white p-3">
+        <?php if ($ultimo !== null): ?>
+            <a href="/relatorios/download?id=<?= (int) $ultimo['id'] ?>"
+               class="inline-flex items-center gap-2 rounded-lg bg-marinho-800 px-4 py-2 text-sm font-semibold text-white hover:bg-marinho-700">
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16"/>
+                </svg>
+                Descarregar .docx
+            </a>
+        <?php else: ?>
+            <form method="post" action="/relatorios/<?= (int) $relatorio['id'] ?>/gerar">
+                <?= Csrf::campo() ?>
+                <button type="submit"
+                        class="inline-flex items-center gap-2 rounded-lg bg-marinho-800 px-4 py-2 text-sm font-semibold text-white hover:bg-marinho-700">
+                    Gerar .docx
+                </button>
+            </form>
+        <?php endif; ?>
+
+        <?php if ($emailAtivo): ?>
+            <button type="button" data-abrir-email
+                    class="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l9 6 9-6M3 6h18v12H3z"/>
+                </svg>
+                Enviar por email
+            </button>
+        <?php else: ?>
+            <span class="text-xs text-slate-400" title="Configure as variáveis MAIL_* no ficheiro .env">
+                Envio por email não configurado
+            </span>
+        <?php endif; ?>
+
+        <?php if (count($envios) > 0): ?>
+            <span class="ml-auto text-xs text-slate-400">
+                enviado <?= count($envios) ?> vez<?= count($envios) === 1 ? '' : 'es' ?>
+            </span>
+        <?php endif; ?>
+    </div>
+
+    <!-- Formulário de envio, escondido até ser pedido -->
+    <?php if ($emailAtivo): ?>
+        <section data-painel-email class="hidden rounded-xl border border-slate-200 bg-white p-6">
+            <h2 class="mb-1 text-sm font-semibold uppercase tracking-wide text-marinho-800">
+                Enviar por email
+            </h2>
+            <p class="mb-4 text-xs text-slate-500">
+                O ficheiro <strong><?= View::e($ultimo !== null ? basename((string) $ultimo['caminho_arquivo']) : 'a gerar') ?></strong>
+                segue em anexo. As respostas voltam para o seu endereço.
+            </p>
+
+            <form method="post" action="/relatorios/<?= (int) $relatorio['id'] ?>/email" class="space-y-4" novalidate>
+                <?= Csrf::campo() ?>
+
+                <div>
+                    <label for="destinatarios" class="mb-1 block text-xs font-medium text-slate-600">
+                        Destinatários
+                    </label>
+                    <input type="text" id="destinatarios" name="destinatarios" required
+                           value="<?= View::e($antigos['destinatarios'] ?? '') ?>"
+                           placeholder="chefia@empresa.pt, direcao@empresa.pt"
+                           class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-marinho-600 focus:ring-2 focus:ring-marinho-100">
+                    <p class="mt-1 text-[11px] text-slate-400">
+                        Separe vários endereços por vírgula. Máximo de 10 por envio.
+                    </p>
+                </div>
+
+                <div>
+                    <label for="assunto" class="mb-1 block text-xs font-medium text-slate-600">Assunto</label>
+                    <input type="text" id="assunto" name="assunto" required maxlength="255"
+                           value="<?= View::e($antigos['assunto'] ?? $assuntoEmail) ?>"
+                           class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-marinho-600 focus:ring-2 focus:ring-marinho-100">
+                </div>
+
+                <div>
+                    <label for="mensagem" class="mb-1 block text-xs font-medium text-slate-600">
+                        Mensagem <span class="font-normal text-slate-400">(opcional)</span>
+                    </label>
+                    <textarea id="mensagem" name="mensagem" rows="3" maxlength="5000"
+                              placeholder="Uma nota para acompanhar o relatório…"
+                              class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-marinho-600 focus:ring-2 focus:ring-marinho-100"><?= View::e($antigos['mensagem'] ?? '') ?></textarea>
+                </div>
+
+                <div class="flex justify-end gap-2">
+                    <button type="button" data-fechar-email
+                            class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50">
+                        Cancelar
+                    </button>
+                    <button type="submit"
+                            class="rounded-lg bg-marinho-800 px-4 py-2 text-sm font-semibold text-white hover:bg-marinho-700">
+                        Enviar
+                    </button>
+                </div>
+            </form>
+        </section>
+    <?php endif; ?>
 
     <?php if ($entregue): ?>
         <div class="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm text-emerald-800">
@@ -251,4 +358,59 @@ $minutos   = static fn (mixed $v): string => $v ? Semana::minutosParaTexto((int)
             </ul>
         <?php endif; ?>
     </section>
+
+    <!-- Histórico de envios -->
+    <?php if ($envios !== []): ?>
+        <section class="rounded-xl border border-slate-200 bg-white p-6">
+            <h2 class="mb-3 text-sm font-semibold uppercase tracking-wide text-marinho-800">
+                Enviado por email
+            </h2>
+
+            <ul class="divide-y divide-slate-100">
+                <?php foreach ($envios as $envio): ?>
+                    <li class="py-2.5">
+                        <p class="text-sm text-slate-700"><?= View::e($envio['destinatarios']) ?></p>
+                        <p class="text-[11px] text-slate-400">
+                            <?= View::e(date('d/m/Y H:i', strtotime((string) $envio['enviado_em']))) ?>
+                            · por <?= View::e($envio['enviado_por_nome'] ?? '—') ?>
+                            · <?= View::e($envio['assunto']) ?>
+                        </p>
+                    </li>
+                <?php endforeach; ?>
+            </ul>
+        </section>
+    <?php endif; ?>
 </div>
+
+<script>
+    // Abre e fecha o formulário de envio por email.
+    (function () {
+        var painel = document.querySelector('[data-painel-email]');
+        var abrir = document.querySelector('[data-abrir-email]');
+        var fechar = document.querySelector('[data-fechar-email]');
+
+        if (!painel || !abrir) {
+            return;
+        }
+
+        abrir.addEventListener('click', function () {
+            painel.classList.toggle('hidden');
+
+            if (!painel.classList.contains('hidden')) {
+                painel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                painel.querySelector('#destinatarios').focus();
+            }
+        });
+
+        if (fechar) {
+            fechar.addEventListener('click', function () {
+                painel.classList.add('hidden');
+            });
+        }
+
+        // Depois de um erro de validação o formulário reabre já preenchido.
+        if (painel.querySelector('#destinatarios').value.trim() !== '') {
+            painel.classList.remove('hidden');
+        }
+    }());
+</script>

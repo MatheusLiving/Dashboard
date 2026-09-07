@@ -60,6 +60,17 @@ return [
         'duracao'  => ((int) $env('SESSION_LIFETIME', 120)) * 60,
         'segura'   => (bool) $env('SESSION_SECURE', false),
     ],
+    'mail' => [
+        'ativo'      => (bool) $env('MAIL_ENABLED', false),
+        'host'       => (string) $env('MAIL_HOST', '127.0.0.1'),
+        'porta'      => (int) $env('MAIL_PORT', 1025),
+        'utilizador' => (string) $env('MAIL_USERNAME', ''),
+        'password'   => (string) $env('MAIL_PASSWORD', ''),
+        'cifra'      => strtolower((string) $env('MAIL_ENCRYPTION', '')),
+        'de'         => (string) $env('MAIL_FROM_ADDRESS', 'relatorios@ti.local'),
+        'de_nome'    => (string) $env('MAIL_FROM_NAME', 'Relatório Semanal'),
+        'responder'  => (string) $env('MAIL_REPLY_TO', ''),
+    ],
     'relatorio' => [
         'template' => $raiz . DIRECTORY_SEPARATOR
             . str_replace('/', DIRECTORY_SEPARATOR, (string) $env('REPORT_TEMPLATE', 'storage/templates/Relatorio_Semanal_TI_template.docx')),
