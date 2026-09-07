@@ -10,7 +10,9 @@ Um relatório por colaborador, por semana ISO.
 
 ## Estado do desenvolvimento
 
-O trabalho está organizado em seis fases. Cada fase é validada antes de se avançar para a seguinte.
+As seis fases estão concluídas. A aplicação está funcional de ponta a ponta: a equipa trabalha
+no quadro durante a semana e, no fim, cada colaborador gera o relatório em `.docx` já
+preenchido a partir do que ficou registado.
 
 | Fase | Âmbito | Estado |
 |------|--------|--------|
@@ -19,7 +21,7 @@ O trabalho está organizado em seis fases. Cada fase é validada antes de se ava
 | 3 | Projetos e backlog | **Concluída** |
 | 4 | Relatório: formulário e pré-preenchimento automático | **Concluída** |
 | 5 | Geração do `.docx` a partir do template e descarregamento | **Concluída** |
-| 6 | Configurações, auditoria, gestão de utilizadores, acabamentos | Por fazer |
+| 6 | Configurações, auditoria, gestão de utilizadores, acabamentos | **Concluída** |
 
 ---
 
@@ -303,6 +305,61 @@ o próprio autor**, mesmo para o administrador — um relatório é o testemunho
 
 ---
 
+## Administração
+
+Três páginas reservadas a administradores, ligadas no fim da barra lateral.
+
+### Utilizadores (`/utilizadores`)
+
+Criar contas, editar nome, endereço, função e papel, e definir uma palavra-passe nova quando
+alguém a perde. O nome e a função preenchem os campos «Colaborador» e «Função / Cargo» do
+relatório, por isso vale a pena mantê-los certos.
+
+**As contas nunca são eliminadas** — desativam-se, para que o histórico de tarefas e
+relatórios continue a ter autor identificável. Uma conta desativada deixa de conseguir iniciar
+sessão de imediato, mesmo que tivesse sessão aberta.
+
+Três salvaguardas impedem que a administração se feche a si própria:
+
+- não é possível desativar a própria conta;
+- não é possível desativar o último administrador ativo;
+- não é possível despromover o último administrador ativo.
+
+A palavra-passe redefinida **nunca entra no registo de auditoria** — fica registado que houve
+uma reposição e para quem, nada mais.
+
+### Configurações (`/configuracoes`)
+
+As opções de negócio do departamento, distintas do `.env`, que guarda credenciais e
+infraestrutura. Cada uma tem efeito real e verificável:
+
+| Configuração | O que muda |
+|---|---|
+| Nome do departamento | cabeçalho da aplicação e do relatório (o `.env` é o recurso enquanto não houver configuração) |
+| Dia de fecho da semana | dia em que se espera o relatório preparado |
+| Prazo de entrega (dias) | data de entrega proposta no formulário, contada a partir do fim da semana |
+| Caminho do template | informativo; o caminho usado na geração vem do `.env` |
+| Etiquetas de incidente | que tarefas entram na secção 3 do relatório |
+
+Os slugs das etiquetas de incidente são validados contra as etiquetas existentes: um slug
+errado deixaria a secção 3 silenciosamente vazia, e é melhor recusar do que produzir relatórios
+incompletos sem ninguém dar por isso.
+
+A página mostra ainda o estado do sistema — se o template existe, onde ficam os relatórios
+gerados, fuso horário, ambiente e a semana ISO corrente.
+
+### Auditoria (`/auditoria`)
+
+Quem alterou o quê e quando, com o estado anterior e o posterior lado a lado. Filtros por
+entidade, ação, utilizador e período, com paginação de 50 registos.
+
+O `AuditLogger` regista criações, alterações, movimentos, eliminações, entregas e gerações de
+tarefas, projetos, etiquetas, contas, registos de tempo e relatórios. Guarda apenas os campos
+que **realmente mudaram**, e nunca palavras-passe. A auditoria não faz falhar a operação: se o
+registo falhar, o erro vai para o log e o trabalho do utilizador segue.
+
+---
+
 ## Decisões de arquitetura
 
 **Semanas em ISO-8601.** A semana vai de segunda a domingo e a semana 1 é a que contém a
@@ -324,6 +381,17 @@ de tarefas e relatórios continue a ter autor identificável.
 as consultas de verdade, e cada marcador nomeado só pode aparecer uma vez no SQL. Uma condição
 que compare o mesmo valor em duas colunas precisa de dois marcadores distintos — ver o filtro
 de pesquisa em `Task::paraQuadro()`.
+
+**Cuidado ao mexer na base de dados pela linha de comandos.** A aplicação liga-se sempre em
+`utf8mb4`, mas o cliente `mysql` não o faz por omissão: um `UPDATE` com acentos escrito
+diretamente na consola pode gravar texto em dupla codificação (`Migração` a virar
+`MigraÃ§Ã£o`). Use `mysql --default-character-set=utf8mb4`, ou faça a alteração pela aplicação.
+
+Para detetar um caso destes:
+
+```sql
+SELECT id, nome FROM projects WHERE nome <> CONVERT(CONVERT(nome USING latin1) USING utf8mb4);
+```
 
 ---
 
@@ -447,3 +515,40 @@ modelo à secção de dificuldades.
 Toda a interface está em **português europeu**, seguindo a terminologia do template
 ("Colaborador", "Função / Cargo", "Semana / Período", "Bloqueios, Riscos e Dependências").
 Os comentários do código seguem a mesma norma. O fuso horário é `Europe/Lisbon`.
+
+---
+
+## Mapa da aplicação
+
+| Rota | O que faz | Quem acede |
+|---|---|---|
+| `/login` | Início de sessão | todos |
+| `/` | Painel com o resumo da semana | autenticados |
+| `/perfil` | Dados próprios e palavra-passe | autenticados |
+| `/kanban` | Quadro com arrastar e largar | autenticados |
+| `/backlog` | Tarefas por planear, por projeto | autenticados |
+| `/projetos`, `/projetos/{id}` | Projetos e detalhe | autenticados |
+| `/relatorios` | Listagem (membro vê os seus) | autenticados |
+| `/relatorios/nova` | Formulário pré-preenchido | autenticados |
+| `/relatorios/{id}` | Vista do relatório e ficheiros | dono ou administrador |
+| `/relatorios/download?id=` | Descarregar um `.docx` | dono ou administrador |
+| `/tags` | Gestão de etiquetas | administrador |
+| `/utilizadores` | Gestão de contas | administrador |
+| `/configuracoes` | Opções do departamento | administrador |
+| `/auditoria` | Registo de alterações | administrador |
+
+Pontos de entrada JSON, usados pelo quadro e pelo formulário do relatório:
+`/api/tarefas/{id}` (detalhe, criar, atualizar, mover, eliminar, tempo), `/api/tags` (listar e
+criar) e `/api/relatorios/pre-preencher`.
+
+---
+
+## Utilização típica de uma semana
+
+1. Durante a semana, a equipa trabalha no **quadro**: cria tarefas, arrasta-as entre colunas,
+   marca-as com etiquetas e regista o tempo dedicado no modal de cada uma.
+2. O que travou o trabalho vai para o campo **«Dificuldades encontradas»** da tarefa.
+3. Na sexta-feira, cada colaborador abre **`/relatorios/nova`**. O formulário chega
+   pré-preenchido com as atividades da semana, os incidentes, os projetos e o planeamento.
+4. Revê, corrige, acrescenta o que faltar e escreve o resumo executivo.
+5. **Entrega.** O conteúdo congela e o `.docx` é gerado de imediato, pronto a descarregar.

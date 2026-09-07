@@ -9,12 +9,15 @@ declare(strict_types=1);
  * ficheiro PHP fora de /public é acessível a partir do navegador.
  */
 
+use App\Controllers\AuditController;
 use App\Controllers\AuthController;
 use App\Controllers\BacklogController;
 use App\Controllers\DashboardController;
 use App\Controllers\KanbanController;
 use App\Controllers\ProjectController;
 use App\Controllers\ReportController;
+use App\Controllers\SettingsController;
+use App\Controllers\UserController;
 use App\Controllers\TagController;
 use App\Controllers\TaskController;
 use App\Core\Auth;
@@ -24,6 +27,7 @@ use App\Core\Response;
 use App\Core\Router;
 use App\Core\Session;
 use App\Core\View;
+use App\Models\Setting;
 
 require dirname(__DIR__) . '/vendor/autoload.php';
 
@@ -42,7 +46,8 @@ Session::iniciar();
 // Disponibiliza o utilizador autenticado e o caminho atual a todas as vistas.
 View::partilhar('utilizadorAtual', Auth::utilizador());
 View::partilhar('caminhoAtual', Request::caminho());
-View::partilhar('nomeApp', (string) Config::get('app.nome', 'Departamento de TI'));
+// O nome vem das configurações; o .env serve de recurso enquanto não houver uma.
+View::partilhar('nomeApp', Setting::departamento((string) Config::get('app.nome', 'Departamento de TI')));
 
 $router = new Router();
 
@@ -102,6 +107,18 @@ $router->post('/tags', [TagController::class, 'criar'], ['admin']);
 $router->post('/tags/{id}', [TagController::class, 'atualizar'], ['admin']);
 $router->post('/tags/{id}/alternar', [TagController::class, 'alternar'], ['admin']);
 $router->post('/tags/{id}/eliminar', [TagController::class, 'eliminar'], ['admin']);
+
+// --- Administração ----------------------------------------------------------
+$router->get('/utilizadores', [UserController::class, 'index'], ['admin']);
+$router->post('/utilizadores', [UserController::class, 'criar'], ['admin']);
+$router->post('/utilizadores/{id}', [UserController::class, 'atualizar'], ['admin']);
+$router->post('/utilizadores/{id}/ativo', [UserController::class, 'alternarAtivo'], ['admin']);
+$router->post('/utilizadores/{id}/senha', [UserController::class, 'redefinirSenha'], ['admin']);
+
+$router->get('/configuracoes', [SettingsController::class, 'index'], ['admin']);
+$router->post('/configuracoes', [SettingsController::class, 'guardar'], ['admin']);
+
+$router->get('/auditoria', [AuditController::class, 'index'], ['admin']);
 
 try {
     $router->despachar();

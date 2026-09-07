@@ -81,11 +81,20 @@ final class Setting
     }
 
     /**
-     * Nome do departamento apresentado no relatório.
+     * Nome do departamento apresentado na interface e no relatório.
+     *
+     * A configuração ganha ao valor do .env, que serve apenas de recurso
+     * quando ainda não foi definida.
      */
-    public static function departamento(): string
+    public static function departamento(string $omissao = 'Departamento de TI'): string
     {
-        return (string) self::get('departamento_nome', 'Departamento de TI');
+        try {
+            return (string) self::get('departamento_nome', $omissao);
+        } catch (\Throwable) {
+            // Antes das migrações a tabela ainda não existe: a aplicação tem de
+            // continuar a arrancar para que o erro real seja legível.
+            return $omissao;
+        }
     }
 
     /**

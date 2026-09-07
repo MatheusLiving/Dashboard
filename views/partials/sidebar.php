@@ -36,9 +36,9 @@ $navegacao = [
         'apenasAdmin' => true,
         'itens' => [
             ['rotulo' => 'Etiquetas',     'href' => '/tags',        'icone' => 'etiqueta',  'disponivel' => true],
-            ['rotulo' => 'Utilizadores',  'href' => '/utilizadores', 'icone' => 'pessoas',  'disponivel' => false],
-            ['rotulo' => 'Configurações', 'href' => '/configuracoes', 'icone' => 'roda',    'disponivel' => false],
-            ['rotulo' => 'Auditoria',     'href' => '/auditoria',   'icone' => 'escudo',    'disponivel' => false],
+            ['rotulo' => 'Utilizadores',  'href' => '/utilizadores', 'icone' => 'pessoas',  'disponivel' => true],
+            ['rotulo' => 'Configurações', 'href' => '/configuracoes', 'icone' => 'roda',    'disponivel' => true],
+            ['rotulo' => 'Auditoria',     'href' => '/auditoria',   'icone' => 'escudo',    'disponivel' => true],
         ],
     ],
 ];
