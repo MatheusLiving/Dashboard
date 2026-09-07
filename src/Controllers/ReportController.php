@@ -5,15 +5,18 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Core\Auth;
+use App\Core\Config;
 use App\Core\Database;
 use App\Core\Flash;
 use App\Core\Request;
+use App\Core\Response;
 use App\Core\Semana;
 use App\Core\Validator;
 use App\Models\Report;
 use App\Models\Setting;
 use App\Models\User;
 use App\Services\AuditLogger;
+use App\Services\DocxGenerator;
 use App\Services\ReportBuilder;
 use InvalidArgumentException;
 use Throwable;
@@ -208,6 +211,10 @@ final class ReportController extends Controller
                 Semana::rotuloCurto($ano, $semana)
             ));
 
+            // A entrega gera logo o ficheiro. Se a geração falhar, a entrega
+            // mantém-se — o relatório está guardado e pode ser gerado de novo.
+            $this->gerarFicheiro($reportId);
+
             $this->redirecionar('/relatorios/' . $reportId);
         }
 
@@ -242,6 +249,113 @@ final class ReportController extends Controller
 
         Flash::sucesso('Rascunho eliminado.');
         $this->redirecionar('/relatorios');
+    }
+
+    /**
+     * Gera o ficheiro .docx de um relatório.
+     *
+     * Cada geração acrescenta um ficheiro novo e uma linha em `report_exports`:
+     * o histórico de versões geradas nunca é substituído.
+     */
+    public function gerar(string $id): void
+    {
+        $relatorio = Report::porId((int) $id);
+
+        if ($relatorio === null) {
+            Flash::erro('Relatório não encontrado.');
+            $this->redirecionar('/relatorios');
+        }
+
+        if (!$this->podeVer($relatorio)) {
+            Flash::erro('Não tem permissões para gerar este relatório.');
+            $this->redirecionar('/relatorios');
+        }
+
+        $this->gerarFicheiro((int) $id);
+
+        $this->redirecionar('/relatorios/' . (int) $id);
+    }
+
+    /**
+     * Gera o ficheiro de um relatório e regista-o.
+     *
+     * Uma falha aqui nunca desfaz a entrega: o relatório fica guardado e o
+     * ficheiro pode ser gerado de novo a partir da página do relatório.
+     */
+    private function gerarFicheiro(int $reportId): void
+    {
+        $relatorio = Report::porId($reportId);
+
+        if ($relatorio === null) {
+            return;
+        }
+
+        try {
+            $ficheiro = (new DocxGenerator())->gerar($relatorio);
+        } catch (Throwable $e) {
+            error_log('Falha ao gerar o .docx do relatório ' . $reportId . ': ' . $e->getMessage());
+
+            Flash::erro('Não foi possível gerar o ficheiro: ' . $e->getMessage());
+
+            return;
+        }
+
+        $exportId = Report::registarExportacao(
+            $reportId,
+            $ficheiro['caminho'],
+            $ficheiro['hash'],
+            Auth::id()
+        );
+
+        AuditLogger::registar('relatorio', $reportId, AuditLogger::GERAR, [
+            'ficheiro' => $ficheiro['nome'],
+            'hash'     => $ficheiro['hash'],
+            'export'   => $exportId,
+        ]);
+
+        Flash::sucesso('Ficheiro gerado: ' . $ficheiro['nome']);
+    }
+
+    /**
+     * Envia um ficheiro gerado para descarregamento.
+     *
+     * Os ficheiros vivem fora de /public e só chegam ao utilizador por aqui,
+     * depois de verificadas as permissões.
+     */
+    public function download(): void
+    {
+        $exportId = Request::queryInt('id');
+
+        if ($exportId === null) {
+            Flash::erro('Descarregamento inválido.');
+            $this->redirecionar('/relatorios');
+        }
+
+        $exportacao = Report::exportacao($exportId);
+
+        if ($exportacao === null) {
+            Flash::erro('Ficheiro não encontrado.');
+            $this->redirecionar('/relatorios');
+        }
+
+        if (!Auth::adminOuProprio((int) $exportacao['user_id'])) {
+            Flash::erro('Não tem permissões para descarregar este ficheiro.');
+            $this->redirecionar('/relatorios');
+        }
+
+        $caminho = Config::raiz((string) $exportacao['caminho_arquivo']);
+
+        // O caminho vem da base de dados, mas confirma-se que continua dentro
+        // da pasta de relatórios: nunca se serve nada fora dela.
+        $real = realpath($caminho);
+        $base = realpath((string) Config::get('relatorio.saida'));
+
+        if ($real === false || $base === false || !str_starts_with($real, $base)) {
+            Flash::erro('O ficheiro já não está disponível.');
+            $this->redirecionar('/relatorios/' . (int) $exportacao['report_id']);
+        }
+
+        Response::ficheiro($real, basename($real));
     }
 
     /**

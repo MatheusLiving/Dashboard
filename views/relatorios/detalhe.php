@@ -10,6 +10,7 @@
  * @var bool                       $podeEditar
  */
 
+use App\Core\Csrf;
 use App\Core\Semana;
 use App\Core\View;
 use App\Models\Report;
@@ -208,14 +209,26 @@ $minutos   = static fn (mixed $v): string => $v ? Semana::minutosParaTexto((int)
 
     <!-- Ficheiros gerados -->
     <section class="rounded-xl border border-slate-200 bg-white p-6">
-        <h2 class="mb-3 text-sm font-semibold uppercase tracking-wide text-marinho-800">Ficheiros gerados</h2>
+        <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <h2 class="text-sm font-semibold uppercase tracking-wide text-marinho-800">Ficheiros gerados</h2>
+
+            <form method="post" action="/relatorios/<?= (int) $relatorio['id'] ?>/gerar">
+                <?= Csrf::campo() ?>
+                <button type="submit"
+                        class="rounded-lg bg-marinho-800 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-marinho-700">
+                    <?= $exportacoes === [] ? 'Gerar .docx' : 'Gerar nova versão' ?>
+                </button>
+            </form>
+        </div>
 
         <?php if ($exportacoes === []): ?>
             <p class="text-sm text-slate-500">
                 Ainda não foi gerado nenhum ficheiro a partir deste relatório.
-                <span class="text-slate-400">A geração do .docx entra na fase seguinte.</span>
             </p>
         <?php else: ?>
+            <p class="mb-2 text-xs text-slate-400">
+                Cada geração produz um ficheiro novo — as versões anteriores mantêm-se.
+            </p>
             <ul class="divide-y divide-slate-100">
                 <?php foreach ($exportacoes as $exportacao): ?>
                     <li class="flex items-center justify-between gap-3 py-2.5">

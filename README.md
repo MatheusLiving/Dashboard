@@ -18,7 +18,7 @@ O trabalho está organizado em seis fases. Cada fase é validada antes de se ava
 | 2 | Quadro Kanban: tarefas, etiquetas, arrastar e largar, registo de tempo | **Concluída** |
 | 3 | Projetos e backlog | **Concluída** |
 | 4 | Relatório: formulário e pré-preenchimento automático | **Concluída** |
-| 5 | Geração do `.docx` a partir do template e descarregamento | Por fazer |
+| 5 | Geração do `.docx` a partir do template e descarregamento | **Concluída** |
 | 6 | Configurações, auditoria, gestão de utilizadores, acabamentos | Por fazer |
 
 ---
@@ -73,7 +73,17 @@ php database/seed.php
 Ambos os scripts podem ser executados as vezes que forem precisas: as migrações já aplicadas
 são ignoradas e os seeds não duplicam registos.
 
-### 5. Arrancar a aplicação
+### 5. Template do relatório
+
+```bash
+php bin/preparar-template.php
+```
+
+Constrói `storage/templates/Relatorio_Semanal_TI_template.docx` a partir do
+`Relatorio_Semanal_TI.docx` da raiz e confirma que os 24 marcadores ficaram todos colocados.
+Sem este passo, a geração do .docx falha com uma mensagem a lembrá-lo.
+
+### 6. Arrancar a aplicação
 
 Com o servidor embutido do PHP:
 
@@ -126,6 +136,8 @@ Registos que o deslocamento empurraria para depois de hoje ficam no dia de hoje.
 | `php database/migrate.php --forcar` | Reexecuta todas as migrações (apenas em desenvolvimento) |
 | `php database/seed.php` | Executa todos os seeds |
 | `php database/seed.php 03_tags` | Executa apenas o seed indicado |
+| `php bin/preparar-template.php` | Constrói o template .docx com os marcadores |
+| `php bin/preparar-template.php --verificar` | Confere os marcadores do template |
 | `composer install` | Instala as dependências |
 
 ---
@@ -350,22 +362,83 @@ O JavaScript é vanilla. O arrastar e largar do quadro Kanban usará **SortableJ
 
 ## Geração do `.docx`
 
-*Documentado em detalhe na fase 5.* Resumo do que está previsto:
+### O template
 
-O template `storage/templates/Relatorio_Semanal_TI_template.docx` é uma cópia fiel do
-`Relatorio_Semanal_TI.docx` original — mesma formatação, mesmo cabeçalho, mesmo rodapé
-"Página X de Y" e as mesmas 8 secções — com marcadores de substituição inseridos nos
-sítios certos.
+O template vive em `storage/templates/Relatorio_Semanal_TI_template.docx` e é **construído por
+script** a partir do `Relatorio_Semanal_TI.docx` que está na raiz do projeto:
 
-Campos simples: `${colaborador}`, `${semana_periodo}`, `${funcao_cargo}`, `${data_entrega}`,
-`${resumo_executivo}`, `${bloqueios}`, `${dificuldades}`, `${sugestao}`, `${observacoes}`.
+```bash
+php bin/preparar-template.php             # constrói e verifica
+php bin/preparar-template.php --verificar # só confere os marcadores
+```
 
-Linhas de tabela, clonadas com `cloneRow()` do PhpWord conforme o número de registos:
-`${ativ_*}` (secção 2), `${inc_*}` (secção 3), `${proj_*}` (secção 4) e `${prox_*}` (secção 7).
+O original nunca é alterado. O script copia-o e mexe apenas em `word/document.xml`, sempre por
+manipulação da árvore DOM — `styles.xml`, `theme1.xml`, `settings.xml` e `fontTable.xml` ficam
+byte a byte iguais, tal como o cabeçalho e o rodapé «Página X de Y».
 
-Cada geração produz um ficheiro novo em `storage/reports/{ano}/{semana}/`, registado em
-`report_exports` com o respetivo resumo SHA-256. Nunca há substituição de ficheiros: o
-histórico de versões geradas mantém-se intacto.
+Os marcadores são escritos **num único run** cada. Isto não é um pormenor: o Word costuma
+partir texto escrito à mão por vários runs, e um marcador partido passa despercebido ao
+PhpWord e acaba impresso no documento entregue. Por isso o script termina sempre com uma
+verificação — se algum dos 24 marcadores faltar, falha em vez de produzir um template partido.
+
+As tabelas de dados são reduzidas a cabeçalho + uma linha-modelo; as linhas em branco do
+original são removidas, porque o número de linhas passa a ser o número de registos.
+
+**A secção «Dificuldades Encontradas»** é inserida logo a seguir à §5, criada por clonagem do
+título, do subtítulo e da caixa da §5 — o que garante formatação idêntica sem escrever estilos
+à mão. Fica **sem número**, para que a numeração 1–8 do documento original se mantenha.
+
+| Marcadores | Onde |
+|---|---|
+| `${colaborador}` `${semana_periodo}` `${funcao_cargo}` `${data_entrega}` | cabeçalho |
+| `${resumo_executivo}` `${bloqueios}` `${dificuldades}` `${sugestao}` `${observacoes}` | secções de texto livre |
+| `${ativ_data}` `${ativ_tarefa}` `${ativ_projeto}` `${ativ_estado}` `${ativ_tempo}` | §2, linha clonada |
+| `${inc_descricao}` `${inc_prioridade}` `${inc_estado}` `${inc_resolucao}` | §3, linha clonada |
+| `${proj_nome}` `${proj_progresso}` `${proj_passos}` `${proj_obs}` | §4, linha clonada |
+| `${prox_tarefa}` `${prox_prazo}` | §7, linha clonada |
+
+### A geração
+
+Entregar um relatório gera o ficheiro automaticamente; o botão **«Gerar nova versão»** na
+página do relatório produz outro sempre que for preciso. Se a geração falhar, a entrega
+mantém-se — o relatório está guardado e pode ser gerado mais tarde.
+
+Detalhes que valem a pena conhecer:
+
+- **Tabelas vazias.** Uma secção sem registos gera à mesma uma linha, preenchida com `—`.
+  Deixar a linha-modelo intacta faria aparecer `${ativ_tarefa}` no documento entregue.
+- **§6 sem sugestão.** Imprime «Não há sugestões nesta semana.»
+- **Escape e quebras de linha.** Os valores são escapados aqui e não pelo PhpWord, porque as
+  quebras de linha têm de sair como `<w:br/>` — que não pode ser escapado. `&` e `<` chegam ao
+  Word como texto, não como marcação.
+- **Zebra.** O `cloneRow()` copia o sombreado da linha-modelo, pelo que todas as linhas sairiam
+  brancas. O sombreado alternado do original é reposto por pós-processamento, e só nas tabelas
+  cujo cabeçalho tem a cor do template — as caixas de texto livre e a tabela de identificação
+  ficam intactas.
+
+### Os ficheiros
+
+Nome: `RelatorioSemanal_{ano}-S{semana}_{slug-do-nome}.docx`, em
+`storage/reports/{ano}/{semana}/`.
+
+**Nunca há substituição.** Uma segunda geração da mesma semana produz `…_v2.docx`, depois
+`…_v3.docx`, e assim por diante. Cada uma acrescenta uma linha em `report_exports` com o
+caminho e o resumo SHA-256.
+
+Os ficheiros vivem **fora de `/public`** e chegam ao utilizador apenas por
+`/relatorios/download?id=X`, que verifica as permissões (o dono ou um administrador) e confirma
+que o caminho gravado continua dentro da pasta de relatórios antes de servir seja o que for.
+
+### Ajustar o template
+
+Para mudar o aspeto do relatório, edite o `Relatorio_Semanal_TI.docx` original no Word e volte
+a correr `php bin/preparar-template.php`. O script conta com a estrutura de 9 tabelas do
+documento original e falha com uma mensagem clara se ela mudar — acrescentar ou remover uma
+tabela obriga a rever `TemplateBuilder::aplicarMarcadores()`.
+
+Para mudar apenas textos fixos (títulos, frases de ajuda), basta editar o original: o script
+localiza as secções pela posição, não pelo texto, com a única exceção da §5, que serve de
+modelo à secção de dificuldades.
 
 ---
 

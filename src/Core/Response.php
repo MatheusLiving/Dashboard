@@ -84,6 +84,46 @@ final class Response
     }
 
     /**
+     * Envia um ficheiro para descarregamento e termina o pedido.
+     *
+     * Os relatórios gerados vivem fora de /public: chegam ao utilizador
+     * apenas por aqui, depois de verificadas as permissões pelo controlador.
+     */
+    public static function ficheiro(string $caminho, string $nome): never
+    {
+        if (!is_file($caminho) || !is_readable($caminho)) {
+            self::estado(404);
+
+            exit;
+        }
+
+        // Qualquer saída anterior corromperia o ficheiro binário.
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+
+        $tipo = match (strtolower(pathinfo($nome, PATHINFO_EXTENSION))) {
+            'docx'  => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'pdf'   => 'application/pdf',
+            default => 'application/octet-stream',
+        };
+
+        // O nome é higienizado: nunca se confia num valor para montar cabeçalhos.
+        $nomeSeguro = preg_replace('/[^A-Za-z0-9._-]/', '_', $nome) ?? 'relatorio.docx';
+
+        header('Content-Type: ' . $tipo);
+        header('Content-Disposition: attachment; filename="' . $nomeSeguro . '"; '
+            . "filename*=UTF-8''" . rawurlencode($nome));
+        header('Content-Length: ' . (string) filesize($caminho));
+        header('Content-Transfer-Encoding: binary');
+        header('Cache-Control: private, no-store');
+        header('X-Content-Type-Options: nosniff');
+
+        readfile($caminho);
+        exit;
+    }
+
+    /**
      * Define o código de estado da resposta.
      */
     public static function estado(int $codigo): void
