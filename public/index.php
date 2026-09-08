@@ -115,7 +115,9 @@ $router->get('/api/relatorios/pre-preencher', [ReportController::class, 'prePree
 // «download» vem antes de «{id}»: a rota literal tem de ganhar à dinâmica.
 $router->get('/relatorios/download', [ReportController::class, 'download'], ['auth']);
 $router->get('/relatorios/{id}', [ReportController::class, 'mostrar'], ['auth']);
+$router->get('/relatorios/{id}/editar', [ReportController::class, 'editar'], ['auth']);
 $router->post('/relatorios/{id}/gerar', [ReportController::class, 'gerar'], ['auth']);
+$router->post('/relatorios/{id}/reabrir', [ReportController::class, 'reabrir'], ['auth']);
 $router->post('/relatorios/{id}/email', [ReportController::class, 'enviarEmail'], ['auth']);
 $router->post('/relatorios/{id}/eliminar', [ReportController::class, 'eliminar'], ['auth']);
 

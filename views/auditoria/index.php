@@ -44,7 +44,9 @@ $cores = [
     'eliminar'  => 'bg-rose-50 text-rose-700',
     'mover'     => 'bg-violet-50 text-violet-700',
     'entregar'  => 'bg-marinho-50 text-marinho-800',
+    'reabrir'   => 'bg-amber-50 text-amber-700',
     'gerar'     => 'bg-slate-100 text-slate-600',
+    'enviar_email' => 'bg-indigo-50 text-indigo-700',
 ];
 ?>
 <div class="space-y-4">

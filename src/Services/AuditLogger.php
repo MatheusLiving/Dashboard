@@ -23,7 +23,9 @@ final class AuditLogger
     public const ELIMINAR   = 'eliminar';
     public const MOVER      = 'mover';
     public const ENTREGAR   = 'entregar';
+    public const REABRIR    = 'reabrir';
     public const GERAR      = 'gerar';
+    public const ENVIAR     = 'enviar_email';
     public const DESATIVAR  = 'desativar';
     public const ATIVAR     = 'ativar';
 

@@ -167,6 +167,40 @@ final class Report
         return ($relatorio['status'] ?? self::RASCUNHO) === self::ENTREGUE;
     }
 
+    /**
+     * Devolve um relatório entregue ao estado de rascunho.
+     *
+     * O congelamento continua a valer para o que interessa: o conteúdo nunca
+     * muda por efeito colateral de uma tarefa apagada ou de um projeto
+     * renomeado. Muda apenas por decisão explícita do autor, que tem de
+     * reabrir o relatório para isso — e a reabertura fica na auditoria.
+     *
+     * Os ficheiros já gerados e os envios feitos mantêm-se: são o registo do
+     * que foi entregue, e uma correção posterior não os desfaz.
+     */
+    public static function reabrir(int $id): int
+    {
+        return Database::atualizar('reports', $id, ['status' => self::RASCUNHO]);
+    }
+
+    /**
+     * Caminhos dos ficheiros gerados a partir de um relatório.
+     *
+     * Servem para limpar o disco quando o relatório é eliminado — as linhas
+     * de `report_exports` desaparecem em cascata, os ficheiros não.
+     *
+     * @return list<string>
+     */
+    public static function caminhosExportados(int $reportId): array
+    {
+        $linhas = Database::todos(
+            'SELECT caminho_arquivo FROM report_exports WHERE report_id = :rid',
+            [':rid' => $reportId]
+        );
+
+        return array_map(static fn (array $l): string => (string) $l['caminho_arquivo'], $linhas);
+    }
+
     // -----------------------------------------------------------------------
     // Linhas das secções 2, 3, 4 e 7
     // -----------------------------------------------------------------------

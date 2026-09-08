@@ -11,6 +11,7 @@
  * @var bool                       $ehAdmin
  */
 
+use App\Core\Csrf;
 use App\Core\Semana;
 use App\Core\View;
 use App\Models\Report;
@@ -150,16 +151,46 @@ $classeCampo = 'rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm outline
                                     <?= $total > 0 ? $total . ' ficheiro' . ($total === 1 ? '' : 's') : '—' ?>
                                 </td>
 
+                                <?php
+                                // Alterar e eliminar são só do autor, mesmo para o administrador.
+                                $ehAutor = (int) $relatorio['user_id'] === (int) ($utilizadorAtual['id'] ?? 0);
+
+                                $aviso = sprintf(
+                                    'Eliminar definitivamente o relatório de %s?',
+                                    Semana::rotuloCurto((int) $relatorio['ano'], (int) $relatorio['numero_semana'])
+                                );
+
+                                if ($total > 0) {
+                                    $aviso .= sprintf(
+                                        ' Apaga também %d ficheiro%s gerado%s.',
+                                        $total,
+                                        $total === 1 ? '' : 's',
+                                        $total === 1 ? '' : 's'
+                                    );
+                                }
+
+                                $aviso .= ' Esta ação não pode ser desfeita.';
+                                ?>
                                 <td class="px-5 py-3 text-right">
                                     <a href="/relatorios/<?= (int) $relatorio['id'] ?>"
                                        class="text-sm font-medium text-marinho-800 underline-offset-2 hover:underline">
                                         Ver
                                     </a>
-                                    <?php if (!$entregue && (int) $relatorio['user_id'] === (int) ($utilizadorAtual['id'] ?? 0)): ?>
-                                        <a href="/relatorios/nova?ano=<?= (int) $relatorio['ano'] ?>&semana=<?= (int) $relatorio['numero_semana'] ?>"
+                                    <?php if ($ehAutor): ?>
+                                        <a href="/relatorios/<?= (int) $relatorio['id'] ?>/editar"
                                            class="ml-3 text-sm font-medium text-slate-500 underline-offset-2 hover:underline">
-                                            Editar
+                                            <?= $entregue ? 'Alterar' : 'Editar' ?>
                                         </a>
+
+                                        <form method="post" action="/relatorios/<?= (int) $relatorio['id'] ?>/eliminar"
+                                              class="ml-3 inline"
+                                              onsubmit="return confirm('<?= View::e($aviso) ?>');">
+                                            <?= Csrf::campo() ?>
+                                            <button type="submit"
+                                                    class="text-sm font-medium text-rose-600 underline-offset-2 hover:underline">
+                                                Eliminar
+                                            </button>
+                                        </form>
                                     <?php endif; ?>
                                 </td>
                             </tr>

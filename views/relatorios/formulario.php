@@ -308,7 +308,7 @@ $cartoes = [
     <!-- Ações -->
     <div class="sticky bottom-0 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-6 py-4 shadow-lg">
         <p class="text-xs text-slate-500">
-            <strong class="text-slate-700">Entregar</strong> congela o conteúdo: deixa de ser possível editar.
+            <strong class="text-slate-700">Entregar</strong> congela o conteúdo. Para o corrigir depois, terá de reabrir o relatório.
         </p>
 
         <div class="flex gap-2">

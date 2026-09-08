@@ -27,6 +27,11 @@ use Throwable;
  *
  * Um relatório por colaborador e por semana ISO. Enquanto está em rascunho
  * pode ser editado; ao ser entregue, o conteúdo congela.
+ *
+ * O congelamento não é uma prisão: o autor pode reabrir o relatório, corrigir
+ * o que estiver errado e entregá-lo de novo. O que o congelamento garante é
+ * que o conteúdo nunca muda sozinho — só por decisão explícita de quem o
+ * escreveu, e sempre com registo na auditoria.
  */
 final class ReportController extends Controller
 {
@@ -228,7 +233,102 @@ final class ReportController extends Controller
     }
 
     /**
-     * Elimina um rascunho. Relatórios entregues nunca são eliminados por aqui.
+     * Abre um relatório já gravado para edição.
+     *
+     * O formulário é o mesmo da criação, endereçado pela semana; esta rota
+     * existe para se poder ligar a «Editar» a partir de um identificador,
+     * sem que a listagem tenha de saber como o formulário é endereçado.
+     */
+    public function editar(string $id): void
+    {
+        $relatorio = Report::porId((int) $id);
+
+        if ($relatorio === null) {
+            Flash::erro('Relatório não encontrado.');
+            $this->redirecionar('/relatorios');
+        }
+
+        if (!$this->podeEditar($relatorio)) {
+            Flash::erro('Só o autor pode alterar um relatório.');
+            $this->redirecionar($this->podeVer($relatorio) ? '/relatorios/' . (int) $id : '/relatorios');
+        }
+
+        // Um relatório entregue tem de ser reaberto primeiro: alterar o que já
+        // foi entregue é uma decisão, não um clique distraído.
+        if (Report::congelado($relatorio)) {
+            Flash::aviso('Este relatório já foi entregue. Reabra-o para poder alterá-lo.');
+            $this->redirecionar('/relatorios/' . (int) $id);
+        }
+
+        $this->redirecionar(sprintf(
+            '/relatorios/nova?ano=%d&semana=%d',
+            (int) $relatorio['ano'],
+            (int) $relatorio['numero_semana']
+        ));
+    }
+
+    /**
+     * Devolve um relatório entregue ao estado de rascunho, para correção.
+     *
+     * Os ficheiros gerados e os envios feitos mantêm-se: são o registo do que
+     * chegou à chefia, e uma correção posterior não os desfaz. A nova entrega
+     * gera outra versão do .docx, ao lado da anterior.
+     */
+    public function reabrir(string $id): void
+    {
+        $relatorio = Report::porId((int) $id);
+
+        if ($relatorio === null) {
+            Flash::erro('Relatório não encontrado.');
+            $this->redirecionar('/relatorios');
+        }
+
+        if (!$this->podeEditar($relatorio)) {
+            Flash::erro('Só o autor pode reabrir um relatório.');
+            $this->redirecionar($this->podeVer($relatorio) ? '/relatorios/' . (int) $id : '/relatorios');
+        }
+
+        $destino = sprintf(
+            '/relatorios/nova?ano=%d&semana=%d',
+            (int) $relatorio['ano'],
+            (int) $relatorio['numero_semana']
+        );
+
+        // Já está em rascunho: não há nada a reabrir, segue para a edição.
+        if (!Report::congelado($relatorio)) {
+            $this->redirecionar($destino);
+        }
+
+        Report::reabrir((int) $id);
+
+        AuditLogger::registar('relatorio', (int) $id, AuditLogger::REABRIR, [
+            'ano'    => (int) $relatorio['ano'],
+            'semana' => (int) $relatorio['numero_semana'],
+        ]);
+
+        $envios = count(Report::envios((int) $id));
+
+        if ($envios > 0) {
+            Flash::aviso(sprintf(
+                'Relatório reaberto para edição. Atenção: já tinha sido enviado por email %d vez%s — '
+                . 'quem o recebeu ficou com a versão anterior.',
+                $envios,
+                $envios === 1 ? '' : 'es'
+            ));
+        } else {
+            Flash::sucesso('Relatório reaberto para edição. Entregue-o de novo quando terminar.');
+        }
+
+        $this->redirecionar($destino);
+    }
+
+    /**
+     * Elimina um relatório, com as suas linhas, ficheiros gerados e registos
+     * de envio.
+     *
+     * Vale para rascunhos e para relatórios entregues — a confirmação no ecrã
+     * diz exatamente o que desaparece. Continua a ser só do autor: nem o
+     * administrador apaga o testemunho de outra pessoa.
      */
     public function eliminar(string $id): void
     {
@@ -240,20 +340,73 @@ final class ReportController extends Controller
         }
 
         if (!$this->podeEditar($relatorio)) {
-            Flash::erro('Não tem permissões para eliminar este relatório.');
-            $this->redirecionar('/relatorios');
+            Flash::erro('Só o autor pode eliminar um relatório.');
+            $this->redirecionar($this->podeVer($relatorio) ? '/relatorios/' . (int) $id : '/relatorios');
         }
 
-        if (Report::congelado($relatorio)) {
-            Flash::erro('Um relatório entregue não pode ser eliminado.');
-            $this->redirecionar('/relatorios/' . (int) $id);
-        }
+        $entregue = Report::congelado($relatorio);
 
+        // Os caminhos têm de ser lidos antes: as linhas de `report_exports`
+        // desaparecem em cascata com o relatório.
+        $caminhos = Report::caminhosExportados((int) $id);
+
+        // A base de dados primeiro. Se a eliminação falhar, os ficheiros ainda
+        // lá estão e o relatório continua completo; pela ordem inversa,
+        // ficariam registos a apontar para ficheiros que já não existem.
         Report::eliminar((int) $id);
-        AuditLogger::eliminado('relatorio', (int) $id, $relatorio);
 
-        Flash::sucesso('Rascunho eliminado.');
+        $apagados = $this->eliminarFicheirosGerados($caminhos);
+
+        AuditLogger::eliminado('relatorio', (int) $id, array_merge($relatorio, [
+            'ficheiros_removidos' => $apagados,
+        ]));
+
+        Flash::sucesso(sprintf(
+            '%s eliminado%s.',
+            $entregue ? 'Relatório entregue' : 'Rascunho',
+            $apagados > 0
+                ? sprintf(', com %d ficheiro%s gerado%s', $apagados, $apagados === 1 ? '' : 's', $apagados === 1 ? '' : 's')
+                : ''
+        ));
+
         $this->redirecionar('/relatorios');
+    }
+
+    /**
+     * Apaga do disco os ficheiros gerados de um relatório.
+     *
+     * Devolve quantos foram mesmo apagados. Um ficheiro que já não exista, ou
+     * cujo caminho gravado aponte para fora da pasta de relatórios, é ignorado
+     * em silêncio — nunca se apaga nada fora dessa pasta.
+     *
+     * @param list<string> $caminhos
+     */
+    private function eliminarFicheirosGerados(array $caminhos): int
+    {
+        $base = realpath((string) Config::get('relatorio.saida'));
+
+        if ($base === false) {
+            return 0;
+        }
+
+        $apagados = 0;
+
+        foreach ($caminhos as $caminho) {
+            $real = realpath(Config::raiz($caminho));
+
+            if ($real === false || !str_starts_with($real, $base . DIRECTORY_SEPARATOR)) {
+                continue;
+            }
+
+            if (@unlink($real)) {
+                $apagados++;
+                continue;
+            }
+
+            error_log('Não foi possível apagar o ficheiro gerado: ' . $real);
+        }
+
+        return $apagados;
     }
 
     /**
@@ -426,7 +579,7 @@ final class ReportController extends Controller
                 Auth::id()
             );
 
-            AuditLogger::registar('relatorio', $reportId, 'enviar_email', [
+            AuditLogger::registar('relatorio', $reportId, AuditLogger::ENVIAR, [
                 'destinatarios' => $enderecos['validos'],
                 'ficheiro'      => basename((string) $exportacao['caminho_arquivo']),
             ]);

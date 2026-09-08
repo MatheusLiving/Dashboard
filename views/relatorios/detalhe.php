@@ -72,6 +72,41 @@ $tabela = static function (array $registos, array $colunas, string $vazio): stri
 
 $dataCurta = static fn (mixed $v): string => $v ? date('d/m/Y', strtotime((string) $v)) : '';
 $minutos   = static fn (mixed $v): string => $v ? Semana::minutosParaTexto((int) $v) : '';
+
+// As confirmações dizem exatamente o que vai acontecer: quantos ficheiros
+// desaparecem e se o relatório já saiu para fora da aplicação.
+$totalFicheiros = count($exportacoes);
+$totalEnvios    = count($envios);
+
+$confirmarReabrir = 'Reabrir este relatório para edição?';
+
+if ($totalEnvios > 0) {
+    $confirmarReabrir .= sprintf(
+        ' Já foi enviado por email %d vez%s — quem o recebeu fica com a versão anterior.',
+        $totalEnvios,
+        $totalEnvios === 1 ? '' : 'es'
+    );
+}
+
+$confirmarEliminar = sprintf(
+    'Eliminar definitivamente o relatório de %s?',
+    Semana::rotuloCurto((int) $relatorio['ano'], (int) $relatorio['numero_semana'])
+);
+
+if ($totalFicheiros > 0) {
+    $confirmarEliminar .= sprintf(
+        ' Apaga também %d ficheiro%s gerado%s.',
+        $totalFicheiros,
+        $totalFicheiros === 1 ? '' : 's',
+        $totalFicheiros === 1 ? '' : 's'
+    );
+}
+
+if ($totalEnvios > 0) {
+    $confirmarEliminar .= ' O registo dos envios desaparece; as mensagens já enviadas não voltam atrás.';
+}
+
+$confirmarEliminar .= ' Esta ação não pode ser desfeita.';
 ?>
 <div class="mx-auto max-w-4xl space-y-5">
 
@@ -185,15 +220,27 @@ $minutos   = static fn (mixed $v): string => $v ? Semana::minutosParaTexto((int)
     <?php endif; ?>
 
     <?php if ($entregue): ?>
-        <div class="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm text-emerald-800">
-            Relatório entregue. O conteúdo está congelado: renomear um projeto ou apagar uma tarefa
-            já não altera o que aqui está escrito.
+        <div class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2.5">
+            <span class="text-sm text-emerald-800">
+                Relatório entregue. O conteúdo está congelado: renomear um projeto ou apagar uma tarefa
+                já não altera o que aqui está escrito.
+            </span>
+            <?php if ($podeEditar): ?>
+                <form method="post" action="/relatorios/<?= (int) $relatorio['id'] ?>/reabrir"
+                      onsubmit="return confirm('<?= View::e($confirmarReabrir) ?>');">
+                    <?= Csrf::campo() ?>
+                    <button type="submit"
+                            class="shrink-0 rounded-lg border border-emerald-300 bg-white px-3.5 py-1.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-100">
+                        Reabrir para edição
+                    </button>
+                </form>
+            <?php endif; ?>
         </div>
     <?php else: ?>
         <div class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5">
             <span class="text-sm text-amber-800">Este relatório ainda é um rascunho.</span>
             <?php if ($podeEditar): ?>
-                <a href="/relatorios/nova?ano=<?= (int) $relatorio['ano'] ?>&semana=<?= (int) $relatorio['numero_semana'] ?>"
+                <a href="/relatorios/<?= (int) $relatorio['id'] ?>/editar"
                    class="rounded-lg bg-marinho-800 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-marinho-700">
                     Continuar a editar
                 </a>
@@ -378,6 +425,28 @@ $minutos   = static fn (mixed $v): string => $v ? Semana::minutosParaTexto((int)
                     </li>
                 <?php endforeach; ?>
             </ul>
+        </section>
+    <?php endif; ?>
+
+    <!-- Eliminar -->
+    <?php if ($podeEditar): ?>
+        <section class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4">
+            <div>
+                <h2 class="text-sm font-semibold text-rose-800">Eliminar relatório</h2>
+                <p class="mt-0.5 text-xs text-rose-700">
+                    Desaparecem o conteúdo, as linhas das secções<?= $totalFicheiros > 0 ? ', os ficheiros gerados' : '' ?>
+                    <?= $totalEnvios > 0 ? ' e o registo dos envios' : '' ?>. Não há como voltar atrás.
+                </p>
+            </div>
+
+            <form method="post" action="/relatorios/<?= (int) $relatorio['id'] ?>/eliminar"
+                  onsubmit="return confirm('<?= View::e($confirmarEliminar) ?>');">
+                <?= Csrf::campo() ?>
+                <button type="submit"
+                        class="shrink-0 rounded-lg border border-rose-300 bg-white px-4 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-100">
+                    Eliminar
+                </button>
+            </form>
         </section>
     <?php endif; ?>
 </div>

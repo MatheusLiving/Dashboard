@@ -290,18 +290,42 @@ apresenta «Não há sugestões nesta semana.»
 escreve-se ao longo da semana.
 
 **Entregar** exige resumo executivo com pelo menos 20 caracteres e **congela** o conteúdo:
-a partir daí o relatório não volta a ser gravado nem eliminado, e abrir a semana redireciona
-para a vista em modo de leitura.
+a partir daí abrir a semana redireciona para a vista em modo de leitura, e nada mais escreve
+no relatório.
 
 O congelamento é real, não apenas um estado. As linhas em `report_*` são cópias do texto:
 renomear um projeto ou apagar uma tarefa depois da entrega não altera uma vírgula do que lá
 está escrito. As ligações a `tasks` e `projects` existem só para rastreabilidade e são
 anuladas com `ON DELETE SET NULL`.
 
+### Corrigir depois de entregar
+
+Um relatório entregue não fica intocável — fica protegido de mudanças acidentais. Quem o
+escreveu pode **reabri-lo** a partir da sua página: volta ao estado de rascunho, é editado no
+formulário normal e entregue de novo.
+
+O que a reabertura **não** desfaz: os ficheiros `.docx` já gerados e o registo dos envios por
+email mantêm-se, porque são a prova do que chegou à chefia. A nova entrega gera outra versão
+do ficheiro, ao lado da anterior. Se o relatório já tinha sido enviado, a confirmação diz
+quantas vezes — quem o recebeu ficou com a versão antiga e pode ser preciso reenviar.
+
+A reabertura fica registada na auditoria, com data e autor.
+
+### Eliminar
+
+Rascunhos e relatórios entregues podem ser eliminados pelo autor, a partir da listagem ou da
+página do relatório. Desaparecem o conteúdo, as linhas das secções, os registos de exportação
+e de envio (em cascata) **e os ficheiros `.docx` gerados**, apagados do disco.
+
+A confirmação diz o que vai desaparecer — quantos ficheiros, e se houve envios — porque não há
+como voltar atrás. Um caminho gravado que aponte para fora da pasta de relatórios é ignorado:
+a eliminação nunca toca em nada fora dela.
+
 ### Permissões
 
-Ver: o administrador vê todos os relatórios, um membro vê os seus. Editar e eliminar: **apenas
-o próprio autor**, mesmo para o administrador — um relatório é o testemunho de quem o escreveu.
+Ver: o administrador vê todos os relatórios, um membro vê os seus. Editar, reabrir e eliminar:
+**apenas o próprio autor**, mesmo para o administrador — um relatório é o testemunho de quem o
+escreveu.
 
 ---
 
@@ -370,6 +394,10 @@ no fim do ano — por isso a coluna `ano` da tabela `reports` guarda o **ano ISO
 **Congelamento dos relatórios.** As tabelas `report_*` guardam cópias do texto, não referências.
 Quando um relatório é entregue, o seu conteúdo deixa de poder mudar por efeito colateral:
 renomear um projeto ou apagar uma tarefa não altera relatórios já entregues.
+
+O congelamento trava os efeitos colaterais, não o autor. Corrigir um relatório entregue é
+possível, mas obriga a reabri-lo — um passo explícito, com confirmação e registo na auditoria.
+A distinção que interessa é essa: o conteúdo nunca muda sozinho.
 
 **Sessões em base de dados.** A tabela `sessions` permite listar e invalidar sessões e saber
 de que endereço foi iniciada cada uma — coisas que os ficheiros de sessão do PHP não dão.
@@ -531,6 +559,7 @@ Os comentários do código seguem a mesma norma. O fuso horário é `Europe/Lisb
 | `/relatorios` | Listagem (membro vê os seus) | autenticados |
 | `/relatorios/nova` | Formulário pré-preenchido | autenticados |
 | `/relatorios/{id}` | Vista do relatório e ficheiros | dono ou administrador |
+| `/relatorios/{id}/editar` | Abre o relatório no formulário | autor |
 | `/relatorios/download?id=` | Descarregar um `.docx` | dono ou administrador |
 | `/tags` | Gestão de etiquetas | administrador |
 | `/utilizadores` | Gestão de contas | administrador |
@@ -551,4 +580,7 @@ criar) e `/api/relatorios/pre-preencher`.
 3. Na sexta-feira, cada colaborador abre **`/relatorios/nova`**. O formulário chega
    pré-preenchido com as atividades da semana, os incidentes, os projetos e o planeamento.
 4. Revê, corrige, acrescenta o que faltar e escreve o resumo executivo.
-5. **Entrega.** O conteúdo congela e o `.docx` é gerado de imediato, pronto a descarregar.
+5. **Entrega.** O conteúdo congela e o `.docx` é gerado de imediato, pronto a descarregar
+   ou a enviar por email.
+6. Se depois aparecer um erro, **reabre o relatório**, corrige e entrega de novo — a nova versão
+   do ficheiro fica ao lado da anterior.
