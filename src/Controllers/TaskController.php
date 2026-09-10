@@ -11,11 +11,14 @@ use App\Core\Response;
 use App\Core\Semana;
 use App\Core\Validator;
 use App\Models\BoardColumn;
+use App\Models\ChangeReport;
 use App\Models\Project;
+use App\Models\Setting;
 use App\Models\Task;
 use App\Models\TaskActivity;
 use App\Models\TaskTimeLog;
 use App\Services\AuditLogger;
+use App\Services\ChangeReportOpener;
 use Throwable;
 
 /**
@@ -118,10 +121,68 @@ final class TaskController extends Controller
         $criada = Task::porId($taskId);
         AuditLogger::criado('tarefa', $taskId, $criada ?? []);
 
-        $this->json([
+        $resposta = [
             'mensagem' => 'Tarefa criada.',
             'tarefa'   => $this->comTags($criada),
-        ], 201);
+        ];
+
+        $alteracao = $this->abrirRelatorioDeAlteracao($criada);
+
+        if ($alteracao !== null) {
+            $resposta['relatorio_alteracao'] = $alteracao;
+        }
+
+        $this->json($resposta, 201);
+    }
+
+    /**
+     * Abre o Relatório de Alteração de Software da tarefa acabada de criar.
+     *
+     * Só abre quando as etiquetas da tarefa a classificam como desenvolvimento
+     * ou ajuda técnica — ver a configuração «tags_desenvolvimento». Uma falha
+     * aqui nunca pode fazer falhar a criação da tarefa: fica no registo de
+     * erros e o relatório pode ser aberto à mão.
+     *
+     * @param array<string, mixed>|null $tarefa
+     * @return array{id: int, referencia: string}|null
+     */
+    private function abrirRelatorioDeAlteracao(?array $tarefa): ?array
+    {
+        if ($tarefa === null || !Setting::aberturaAutomatica()) {
+            return null;
+        }
+
+        try {
+            $slugs = array_map(
+                static fn (array $tag): string => (string) $tag['slug'],
+                Task::tagsDe((int) $tarefa['id'])
+            );
+
+            $relatorioId = ChangeReportOpener::paraTarefa($tarefa, $slugs, Auth::id());
+
+            if ($relatorioId === null) {
+                return null;
+            }
+
+            $relatorio = ChangeReport::porId($relatorioId);
+
+            AuditLogger::criado('relatorio_alteracao', $relatorioId, [
+                'origem' => 'tarefa',
+                'tarefa' => (int) $tarefa['id'],
+            ]);
+
+            return [
+                'id'         => $relatorioId,
+                'referencia' => (string) ($relatorio['referencia'] ?? ''),
+            ];
+        } catch (Throwable $e) {
+            error_log(
+                'Falha ao abrir o relatório de alteração da tarefa '
+                . (int) $tarefa['id'] . ': ' . $e->getMessage()
+            );
+
+            return null;
+        }
     }
 
     /**

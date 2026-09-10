@@ -561,11 +561,44 @@
         }).then(function (resposta) {
             colocarCartao(resposta.tarefa);
             fecharModal();
+
+            // A tarefa pode ter aberto um Relatorio de Alteracao de Software.
+            // Sem este aviso, o programador so daria por ele mais tarde.
+            if (resposta.relatorio_alteracao) {
+                anunciarRelatorio(resposta.relatorio_alteracao);
+            }
         }).catch(function (erro) {
             mostrarErro(erro.message);
         }).finally(function () {
             botao.disabled = false;
         });
+    }
+
+    /**
+     * Mostra, por alguns segundos, que foi aberto um relatorio de alteracao.
+     */
+    function anunciarRelatorio(relatorio) {
+        var aviso = document.createElement('div');
+
+        aviso.className = 'fixed bottom-4 right-4 z-50 max-w-sm rounded-xl border border-sky-200 '
+            + 'bg-white p-4 text-sm shadow-lg';
+
+        var texto = document.createElement('p');
+        texto.className = 'text-slate-700';
+        texto.textContent = 'Foi aberto o relatório de alteração ' + (relatorio.referencia || '') + '.';
+
+        var ligacao = document.createElement('a');
+        ligacao.href = '/alteracoes/' + relatorio.id;
+        ligacao.className = 'mt-2 inline-block font-semibold text-marinho-800 underline-offset-2 hover:underline';
+        ligacao.textContent = 'Abrir e completar a secção 1';
+
+        aviso.appendChild(texto);
+        aviso.appendChild(ligacao);
+        document.body.appendChild(aviso);
+
+        window.setTimeout(function () {
+            aviso.remove();
+        }, 12000);
     }
 
     function eliminarTarefa() {

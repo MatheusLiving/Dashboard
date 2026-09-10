@@ -81,9 +81,15 @@ são ignoradas e os seeds não duplicam registos.
 php bin/preparar-template.php
 ```
 
-Constrói `storage/templates/Relatorio_Semanal_TI_template.docx` a partir do
-`Relatorio_Semanal_TI.docx` da raiz e confirma que os 24 marcadores ficaram todos colocados.
-Sem este passo, a geração do .docx falha com uma mensagem a lembrá-lo.
+Constrói os dois templates e confirma que os marcadores ficaram todos colocados:
+
+- `storage/templates/Relatorio_Semanal_TI_template.docx`, a partir do `Relatorio_Semanal_TI.docx`
+  da raiz — 24 marcadores;
+- `storage/templates/Relatorio_Alteracao_Software_template.docx`, a partir do
+  `storage/templates/Relatorio_Alteracao_Software.docx` — 28 marcadores.
+
+Nenhum dos originais é alterado. Sem este passo, a geração do .docx falha com uma mensagem
+a lembrá-lo.
 
 ### 6. Arrancar a aplicação
 
@@ -139,8 +145,10 @@ Registos que o deslocamento empurraria para depois de hoje ficam no dia de hoje.
 | `php database/seed.php` | Executa todos os seeds |
 | `php database/seed.php 03_tags` | Executa apenas o seed indicado |
 | `php database/seed.php 07_departments` | Cria a lista inicial de departamentos |
-| `php bin/preparar-template.php` | Constrói o template .docx com os marcadores |
-| `php bin/preparar-template.php --verificar` | Confere os marcadores do template |
+| `php bin/preparar-template.php` | Constrói os dois templates .docx com os marcadores |
+| `php bin/preparar-template.php --verificar` | Confere os marcadores dos templates |
+| `php bin/preparar-template.php --semanal` | Só o template do relatório semanal |
+| `php bin/preparar-template.php --alteracao` | Só o template do relatório de alteração |
 | `composer install` | Instala as dependências |
 
 ---
@@ -165,7 +173,8 @@ Registos que o deslocamento empurraria para depois de hoje ficam no dia de hoje.
   /Models           Uma classe por entidade
   /Services         ReportBuilder, DocxGenerator, AuditLogger (fases 4 a 6)
 /storage
-  /templates        Template .docx com os marcadores de substituição
+  /templates        Documento original e template do relatório de alteração,
+                    e template com marcadores do relatório semanal
   /reports          Ficheiros gerados — fora de /public, servidos por script com verificação de permissões
   /logs             Registo de erros
 /views              Templates PHP: layouts, parciais e páginas
@@ -378,6 +387,85 @@ a eliminação nunca toca em nada fora dela.
 Ver: o administrador vê todos os relatórios, um membro vê os seus. Editar, reabrir e eliminar:
 **apenas o próprio autor**, mesmo para o administrador — um relatório é o testemunho de quem o
 escreveu.
+
+---
+
+## Relatório de Alteração de Software
+
+O segundo documento da aplicação, em `/alteracoes`: o **Relatório de Pedido e Acompanhamento de
+Alteração de Software**, gerado a partir do template `storage/templates/Relatorio_Alteracao_Software.docx`
+com a mesma fidelidade do relatório semanal.
+
+Acompanha uma unidade de trabalho de desenvolvimento do princípio ao fim — do pedido à entrega
+ao cliente — e, ao contrário do relatório semanal, **não congela**: segue para aprovação, pode
+voltar com alterações pedidas e ser corrigido as vezes que forem precisas.
+
+### Quando é aberto
+
+| Aconteceu | O que a aplicação faz |
+|---|---|
+| Foi criado um **projeto** | Abre um relatório, com o nome, a descrição, o prazo e a prioridade do projeto |
+| Foi criada uma **tarefa** com etiqueta de desenvolvimento ou ajuda técnica | Abre um relatório, com o título, a descrição, o responsável e o tipo deduzido das etiquetas |
+| Qualquer outro caso | Nada — mas a página `/alteracoes` tem um botão para abrir um a pedido |
+
+As etiquetas que servem de gatilho são configuráveis (`tags_desenvolvimento`, por omissão
+`desenvolvimento, suporte, incidente, melhoria`), e a abertura automática pode ser desligada por
+inteiro (`alteracao_abertura_automatica`). Sem isto, um quadro que também serve para reuniões e
+tarefas administrativas encheria-se de relatórios vazios.
+
+O que a aplicação preenche é **proposta**: todos os campos continuam editáveis. Cada relatório
+recebe uma referência própria — `ALT-2026-0007` — que o identifica no email e no nome do ficheiro.
+
+**A abertura nunca faz falhar o que a originou.** Se correr mal, o projeto ou a tarefa ficam
+criados na mesma, com um aviso, e o relatório pode ser aberto a partir da listagem.
+
+### Ciclo de aprovação
+
+```
+rascunho ──enviar──▶ em aprovação ──aprovar──▶ aprovado ──reabrir──▶ rascunho
+                            │                                            ▲
+                            └────── pedir alterações ────────────────────┘
+```
+
+- **Enviar para aprovação** exige a secção 1 preenchida (1.1, 1.2 e 1.3): sem o pedido escrito,
+  não há nada para aprovar. O `.docx` é gerado nesse momento — quem aprova tem de poder ler
+  exatamente a versão que lhe foi enviada.
+- **Aprovar** e **pedir alterações** são do administrador. Pedir alterações **exige** dizer o
+  quê: devolver um documento sem explicação deixaria o autor a adivinhar.
+- **Aprovado não se edita.** Para corrigir, reabre-se — e a reabertura fica no histórico.
+
+### Histórico
+
+Cada versão guarda o relatório **por inteiro**, incluindo as linhas de acompanhamento. Não é uma
+lista de diferenças: é o documento como estava naquele momento, legível sozinho em
+`/alteracoes/versoes/{id}`.
+
+Ficam versões na abertura, em cada envio para aprovação, em cada decisão, em cada reabertura e
+em cada gravação que **mude alguma coisa** — uma gravação que não muda nada não gera versão,
+para que o histórico continue a mostrar só o que interessa.
+
+É isto que responde à pergunta que um documento de aprovação tem de saber responder: *o que
+estava escrito quando isto foi aprovado?* Corrigir o relatório depois não toca em nenhuma versão
+já gravada.
+
+### O documento
+
+O `.docx` sai fiel ao original, incluindo as linhas de caixas de opção: em «Tipo de Alteração» e
+«Prioridade» as caixas mantêm-se todas e só muda a que fica assinalada (`☒`), em vez de a linha
+ser substituída por um valor solto.
+
+Os ficheiros ficam em `storage/reports/alteracoes/{ano}/`, com o nome
+`ALT-2026-0007_v3.docx` — a versão faz parte do nome, para que dois ficheiros do mesmo processo
+se distingam à vista. Nunca há substituição, e chegam ao utilizador apenas por
+`/alteracoes/download?id=`, com a mesma verificação de caminho do relatório semanal.
+
+### Envio e permissões
+
+O envio por email usa a mesma configuração `MAIL_*` e regista **a versão enviada**, para que mais
+tarde se saiba o que é que quem aprovou recebeu.
+
+Ver está aberto a toda a equipa — é trabalho comum. Alterar, enviar para aprovação, reabrir e
+eliminar são do autor ou de um administrador. Decidir é só do administrador.
 
 ---
 
@@ -619,6 +707,10 @@ Os comentários do código seguem a mesma norma. O fuso horário é `Europe/Lisb
 | `/relatorios/{id}` | Vista do relatório e ficheiros | dono ou administrador |
 | `/relatorios/{id}/editar` | Abre o relatório no formulário | autor |
 | `/relatorios/download?id=` | Descarregar um `.docx` | dono ou administrador |
+| `/alteracoes` | Relatórios de alteração de software | autenticados |
+| `/alteracoes/{id}` | Vista, aprovação e histórico | autenticados |
+| `/alteracoes/{id}/editar` | Formulário do relatório | autor ou administrador |
+| `/alteracoes/versoes/{id}` | Uma versão do histórico | autenticados |
 | `/tags` | Gestão de etiquetas | administrador |
 | `/utilizadores` | Gestão de contas | administrador |
 | `/configuracoes` | Opções do departamento | administrador |

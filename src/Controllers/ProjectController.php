@@ -9,9 +9,13 @@ use App\Core\Flash;
 use App\Core\Request;
 use App\Core\Semana;
 use App\Core\Validator;
+use App\Models\ChangeReport;
 use App\Models\Project;
+use App\Models\Setting;
 use App\Models\User;
 use App\Services\AuditLogger;
+use App\Services\ChangeReportOpener;
+use Throwable;
 
 /**
  * Gestão de projetos.
@@ -82,7 +86,50 @@ final class ProjectController extends Controller
         AuditLogger::criado('projeto', $id, Project::porId($id) ?? []);
 
         Flash::sucesso('Projeto «' . Request::post('nome') . '» criado.');
+
+        $this->abrirRelatorioDeAlteracao($id);
+
         $this->redirecionar('/projetos/' . $id);
+    }
+
+    /**
+     * Abre o Relatório de Alteração de Software do projeto acabado de criar.
+     *
+     * Nunca pode fazer falhar a criação do projeto: se a abertura correr mal,
+     * fica o aviso e o relatório pode ser aberto à mão a partir da listagem.
+     */
+    private function abrirRelatorioDeAlteracao(int $projectId): void
+    {
+        if (!Setting::aberturaAutomatica()) {
+            return;
+        }
+
+        try {
+            $relatorioId = ChangeReportOpener::paraProjeto(Project::porId($projectId) ?? [], Auth::id());
+
+            if ($relatorioId === null) {
+                return;
+            }
+
+            $relatorio = ChangeReport::porId($relatorioId);
+
+            AuditLogger::criado('relatorio_alteracao', $relatorioId, [
+                'origem'  => 'projeto',
+                'projeto' => $projectId,
+            ]);
+
+            Flash::info(sprintf(
+                'Foi aberto o relatório de alteração %s para este projeto. Complete a secção 1 antes de começar o trabalho.',
+                (string) ($relatorio['referencia'] ?? '')
+            ));
+        } catch (Throwable $e) {
+            error_log('Falha ao abrir o relatório de alteração do projeto ' . $projectId . ': ' . $e->getMessage());
+
+            Flash::aviso(
+                'O projeto foi criado, mas não foi possível abrir o relatório de alteração. '
+                . 'Pode abri-lo a partir da página Alterações.'
+            );
+        }
     }
 
     /**

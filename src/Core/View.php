@@ -71,25 +71,29 @@ final class View
      *
      * @param array<string, mixed> $dados
      */
-    private static function capturar(string $vista, array $dados): string
+    private static function capturar(string $__vista, array $__dados): string
     {
-        $ficheiro = Config::raiz('views/' . str_replace('.', '/', $vista) . '.php');
+        $__ficheiro = Config::raiz('views/' . str_replace('.', '/', $__vista) . '.php');
 
-        if (!is_file($ficheiro)) {
-            throw new RuntimeException(sprintf('Vista não encontrada: %s', $vista));
+        if (!is_file($__ficheiro)) {
+            throw new RuntimeException(sprintf('Vista não encontrada: %s', $__vista));
         }
 
-        // As variáveis das vistas são extraídas de um array controlado por nós.
-        extract(array_merge(self::$partilhados, $dados), EXTR_SKIP);
+        // As variáveis locais deste método levam o prefixo «__» de propósito.
+        // O extract() usa EXTR_SKIP, que não sobrepõe variáveis já existentes:
+        // uma vista que recebesse $dados, $vista ou $ficheiro ficaria
+        // silenciosamente com o valor local em vez do seu — e o erro só
+        // aparecia como um campo vazio no ecrã.
+        extract(array_merge(self::$partilhados, $__dados), EXTR_SKIP);
 
         ob_start();
 
         try {
-            require $ficheiro;
-        } catch (\Throwable $e) {
+            require $__ficheiro;
+        } catch (\Throwable $__erro) {
             ob_end_clean();
 
-            throw $e;
+            throw $__erro;
         }
 
         return (string) ob_get_clean();

@@ -81,6 +81,33 @@ final class Setting
     }
 
     /**
+     * Slugs das etiquetas que classificam uma tarefa como desenvolvimento ou
+     * ajuda técnica — e que, por isso, abrem um relatório de alteração.
+     *
+     * @return list<string>
+     */
+    public static function tagsDesenvolvimento(): array
+    {
+        $bruto = (string) self::get('tags_desenvolvimento', 'desenvolvimento,suporte,incidente,melhoria');
+
+        $slugs = array_map('trim', explode(',', $bruto));
+        $slugs = array_filter($slugs, static fn (string $s): bool => $s !== '');
+
+        return array_values($slugs);
+    }
+
+    /**
+     * Indica se a abertura automática do relatório de alteração está ligada.
+     *
+     * Desligá-la não apaga nada: apenas deixa de abrir relatórios sozinha, e
+     * o botão de abertura manual continua a existir.
+     */
+    public static function aberturaAutomatica(): bool
+    {
+        return self::get('alteracao_abertura_automatica', '1') !== '0';
+    }
+
+    /**
      * Nome do departamento apresentado na interface e no relatório.
      *
      * A configuração ganha ao valor do .env, que serve apenas de recurso

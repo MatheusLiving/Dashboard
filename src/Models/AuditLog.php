@@ -159,6 +159,9 @@ final class AuditLog
             'reabrir'      => 'Reabertura',
             'gerar'        => 'Geração',
             'enviar_email' => 'Envio por email',
+            'enviar_aprovacao'  => 'Enviado para aprovação',
+            'aprovar'           => 'Aprovação',
+            'pedir_alteracoes'  => 'Alterações pedidas',
             'ativar'       => 'Ativação',
             'desativar'    => 'Desativação',
             'arquivar'     => 'Arquivo',
@@ -180,6 +183,7 @@ final class AuditLog
             'departamento'   => 'Departamento',
             'utilizador'     => 'Utilizador',
             'relatorio'      => 'Relatório',
+            'relatorio_alteracao' => 'Relatório de alteração',
             'registo_tempo'  => 'Registo de tempo',
             'configuracao'   => 'Configuração',
         ];

@@ -61,6 +61,76 @@ final class Mailer
             throw new RuntimeException('O ficheiro do relatório não foi encontrado.');
         }
 
+        return $this->enviar(
+            $destinatarios,
+            $anexo,
+            $assunto,
+            $this->corpoHtml($relatorio, $mensagem, $remetenteNome),
+            $this->corpoTexto($relatorio, $mensagem, $remetenteNome),
+            $remetenteNome,
+            $remetenteEmail
+        );
+    }
+
+    /**
+     * Envia um documento qualquer com o ficheiro em anexo.
+     *
+     * Serve o Relatório de Alteração de Software, que segue para aprovação e
+     * precisa de um corpo próprio: o que interessa a quem aprova é a
+     * referência, a versão e o que mudou desde a última vez.
+     *
+     * @param list<string>          $destinatarios
+     * @param array<string, string> $detalhes  Linhas de identificação (rótulo => valor)
+     * @return list<string> Endereços que o servidor aceitou
+     */
+    public function enviarDocumento(
+        array $destinatarios,
+        string $anexo,
+        string $assunto,
+        string $introducao,
+        array $detalhes,
+        string $mensagem,
+        string $remetenteNome,
+        string $remetenteEmail
+    ): array {
+        if (!self::ativo()) {
+            throw new RuntimeException('O envio de correio está desligado na configuração.');
+        }
+
+        if ($destinatarios === []) {
+            throw new RuntimeException('Indique pelo menos um destinatário.');
+        }
+
+        if (!is_file($anexo) || !is_readable($anexo)) {
+            throw new RuntimeException('O ficheiro do relatório não foi encontrado.');
+        }
+
+        return $this->enviar(
+            $destinatarios,
+            $anexo,
+            $assunto,
+            $this->corpoHtmlGenerico($introducao, $detalhes, $mensagem, $remetenteNome),
+            $this->corpoTextoGenerico($introducao, $detalhes, $mensagem, $remetenteNome),
+            $remetenteNome,
+            $remetenteEmail
+        );
+    }
+
+    /**
+     * Entrega a mensagem ao servidor SMTP.
+     *
+     * @param list<string> $destinatarios
+     * @return list<string>
+     */
+    private function enviar(
+        array $destinatarios,
+        string $anexo,
+        string $assunto,
+        string $html,
+        string $texto,
+        string $remetenteNome,
+        string $remetenteEmail
+    ): array {
         $mail = new PHPMailer(true);
 
         try {
@@ -90,8 +160,8 @@ final class Mailer
             $mail->Encoding = PHPMailer::ENCODING_BASE64;
             $mail->Subject  = $assunto;
             $mail->isHTML(true);
-            $mail->Body     = $this->corpoHtml($relatorio, $mensagem, $remetenteNome);
-            $mail->AltBody  = $this->corpoTexto($relatorio, $mensagem, $remetenteNome);
+            $mail->Body     = $html;
+            $mail->AltBody  = $texto;
 
             $mail->send();
         } catch (PHPMailerException $e) {
@@ -104,6 +174,84 @@ final class Mailer
         }
 
         return $destinatarios;
+    }
+
+    /**
+     * Corpo em HTML de um documento genérico.
+     *
+     * @param array<string, string> $detalhes
+     */
+    private function corpoHtmlGenerico(
+        string $introducao,
+        array $detalhes,
+        string $mensagem,
+        string $remetenteNome
+    ): string {
+        $e = static fn (mixed $v): string => htmlspecialchars((string) ($v ?? ''), ENT_QUOTES, 'UTF-8');
+
+        $nota = trim($mensagem) === ''
+            ? ''
+            : '<p style="margin:0 0 16px;white-space:pre-line">' . nl2br($e($mensagem), false) . '</p>';
+
+        $linhas = '';
+
+        foreach ($detalhes as $rotulo => $valor) {
+            $linhas .= '<tr>'
+                . '<td style="padding:4px 16px 4px 0;color:#64748b">' . $e($rotulo) . '</td>'
+                . '<td style="padding:4px 0">' . $e($valor === '' ? '—' : $valor) . '</td>'
+                . '</tr>';
+        }
+
+        return <<<HTML
+        <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;
+                    font-size:14px;color:#1e293b;line-height:1.6;max-width:600px">
+            <p style="margin:0 0 16px">Boa tarde,</p>
+            {$nota}
+            <p style="margin:0 0 16px">{$e($introducao)}</p>
+            <table style="border-collapse:collapse;margin:0 0 20px">{$linhas}</table>
+            <p style="margin:0 0 4px">Com os melhores cumprimentos,</p>
+            <p style="margin:0;color:#1F3864"><strong>{$e($remetenteNome)}</strong></p>
+            <p style="margin:24px 0 0;padding-top:12px;border-top:1px solid #e2e8f0;
+                      font-size:12px;color:#94a3b8">
+                Mensagem enviada automaticamente por {$e(Setting::departamento())}.
+            </p>
+        </div>
+        HTML;
+    }
+
+    /**
+     * Corpo em texto simples de um documento genérico.
+     *
+     * @param array<string, string> $detalhes
+     */
+    private function corpoTextoGenerico(
+        string $introducao,
+        array $detalhes,
+        string $mensagem,
+        string $remetenteNome
+    ): string {
+        $linhas = ['Boa tarde,', ''];
+
+        if (trim($mensagem) !== '') {
+            $linhas[] = trim($mensagem);
+            $linhas[] = '';
+        }
+
+        $linhas[] = $introducao;
+        $linhas[] = '';
+
+        foreach ($detalhes as $rotulo => $valor) {
+            $linhas[] = $rotulo . ': ' . ($valor === '' ? '—' : $valor);
+        }
+
+        $linhas[] = '';
+        $linhas[] = 'Com os melhores cumprimentos,';
+        $linhas[] = $remetenteNome;
+        $linhas[] = '';
+        $linhas[] = '--';
+        $linhas[] = 'Mensagem enviada automaticamente por ' . Setting::departamento() . '.';
+
+        return implode("\n", $linhas);
     }
 
     /**

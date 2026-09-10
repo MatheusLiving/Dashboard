@@ -29,6 +29,7 @@ $navegacao = [
         'grupo' => 'Relatórios',
         'itens' => [
             ['rotulo' => 'Relatórios',      'href' => '/relatorios',      'icone' => 'documento', 'disponivel' => true],
+            ['rotulo' => 'Alterações',      'href' => '/alteracoes',      'icone' => 'codigo',    'disponivel' => true],
             ['rotulo' => 'Novo relatório',  'href' => '/relatorios/nova', 'icone' => 'mais',      'disponivel' => true],
         ],
     ],
@@ -55,6 +56,7 @@ $icone = static function (string $nome): string {
         'mais'      => 'M12 5v14M5 12h14',
         'etiqueta'  => 'M3 12l8-8h8v8l-8 8-8-8zm13-4h.01',
         'grafico'   => 'M4 20V10m5 10V4m5 16v-7m5 7V8',
+        'codigo'    => 'M8 9l-3 3 3 3m8-6l3 3-3 3M13 5l-2 14',
         'pessoas'   => 'M8 11a3 3 0 100-6 3 3 0 000 6zm8 0a3 3 0 100-6 3 3 0 000 6zM3 20a5 5 0 0110 0M14 20a5 5 0 017-4.6',
         'roda'      => 'M12 15a3 3 0 100-6 3 3 0 000 6zM4.5 12l-1.6-1 1.2-2.1 1.8.5.9-1.6-.9-1.7 1.7-1.7 1.7.9 1.6-.9-.5-1.8L12 2l1 1.6 1.8-.5.9 1.6-.9 1.7 1.7 1.7 1.7-.9 1.6.9-.5 1.8L21 12',
         'escudo'    => 'M12 3l7 3v6c0 4.4-3 7.6-7 9-4-1.4-7-4.6-7-9V6l7-3z',

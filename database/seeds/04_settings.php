@@ -31,6 +31,21 @@ return static function (): void {
             'descricao' => 'Caminho do template .docx, relativo à raiz do projeto.',
         ],
         [
+            'chave'     => 'tags_desenvolvimento',
+            'valor'     => 'desenvolvimento,suporte,incidente,melhoria',
+            'descricao' => 'Slugs das etiquetas que, numa tarefa, abrem um Relatório de Alteração de Software (separados por vírgula).',
+        ],
+        [
+            'chave'     => 'alteracao_abertura_automatica',
+            'valor'     => '1',
+            'descricao' => 'Abrir automaticamente o Relatório de Alteração de Software ao criar projetos e tarefas de desenvolvimento (1 = sim, 0 = não).',
+        ],
+        [
+            'chave'     => 'alteracao_template_caminho',
+            'valor'     => 'storage/templates/Relatorio_Alteracao_Software_template.docx',
+            'descricao' => 'Caminho do template .docx do relatório de alteração, relativo à raiz do projeto.',
+        ],
+        [
             'chave'     => 'tags_incidente',
             'valor'     => 'suporte,incidente',
             'descricao' => 'Slugs das etiquetas que classificam uma tarefa como incidente (separados por vírgula).',

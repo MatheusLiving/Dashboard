@@ -20,6 +20,10 @@ return static function (): void {
         ['nome' => 'Segurança',      'slug' => 'seguranca',      'cor_hex' => '#DC2626'],
         ['nome' => 'Manutenção',     'slug' => 'manutencao',     'cor_hex' => '#D97706'],
         ['nome' => 'Incidente',      'slug' => 'incidente',      'cor_hex' => '#BE123C'],
+        // Estas duas abrem um Relatório de Alteração de Software quando são
+        // postas numa tarefa — ver a configuração «tags_desenvolvimento».
+        ['nome' => 'Desenvolvimento', 'slug' => 'desenvolvimento', 'cor_hex' => '#2563EB'],
+        ['nome' => 'Melhoria',        'slug' => 'melhoria',        'cor_hex' => '#65A30D'],
     ];
 
     foreach ($tags as $tag) {

@@ -47,6 +47,9 @@ $cores = [
     'reabrir'   => 'bg-amber-50 text-amber-700',
     'gerar'     => 'bg-slate-100 text-slate-600',
     'enviar_email' => 'bg-indigo-50 text-indigo-700',
+    'enviar_aprovacao' => 'bg-sky-50 text-sky-700',
+    'aprovar'          => 'bg-emerald-50 text-emerald-700',
+    'pedir_alteracoes' => 'bg-amber-50 text-amber-700',
 ];
 ?>
 <div class="space-y-4">

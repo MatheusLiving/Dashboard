@@ -23,8 +23,10 @@ php database/migrate.php --estado         # mostra pendentes, sem alterar nada
 php database/migrate.php --forcar         # reexecuta tudo (só em desenvolvimento)
 php database/seed.php                     # todos os seeds (idempotentes)
 php database/seed.php 03_tags             # apenas um seed
-php bin/preparar-template.php             # constrói o template .docx e verifica os marcadores
-php bin/preparar-template.php --verificar # só confere os 24 marcadores
+php bin/preparar-template.php             # constrói os dois templates .docx e verifica-os
+php bin/preparar-template.php --verificar # só confere os marcadores (24 + 28)
+php bin/preparar-template.php --semanal   # só o relatório semanal
+php bin/preparar-template.php --alteracao # só o relatório de alteração
 
 php -S 127.0.0.1:8000 -t public public/index.php   # servidor de desenvolvimento
 docker compose up -d                                # app :8080, phpMyAdmin :8081, Mailpit :8025
@@ -115,6 +117,13 @@ garantido pela chave única `(user_id, ano, numero_semana)`, não apenas pela ap
 **Título das páginas.** Definir `$titulo` dentro de uma vista não chega ao layout, porque o
 layout é renderizado à parte. Use `View::titulo('...')`.
 
+**As variáveis das vistas não podem colidir com as locais de `View::capturar()`.** O `extract()`
+usa `EXTR_SKIP`, que **não** sobrepõe uma variável já existente: uma vista que receba um nome
+igual ao de uma variável local do método fica silenciosamente com o valor do método, e o erro
+só aparece como um campo vazio no ecrã — nunca como exceção. Por isso as locais de `capturar()`
+levam o prefixo `__` (`$__vista`, `$__dados`, `$__ficheiro`, `$__erro`). Mantenha-o em qualquer
+variável nova desse método.
+
 **Codificação.** `Request::normalizar()` converte entrada que não seja UTF-8 válido, aplicada em
 `query()`, `post()`, `postArray()` e `todosPost()`. Do lado da linha de comandos: a aplicação
 liga sempre em `utf8mb4`, mas o cliente `mysql` não — um `UPDATE` com acentos escrito na consola
@@ -143,6 +152,39 @@ mantém-se.
 **Seeds idempotentes com datas móveis.** `06_tasks.php` não recria tarefas já existentes, mas
 desloca as datas dos registos de tempo e do histórico para a **semana ISO corrente**, para que os
 dados de exemplo continuem a servir para testar o relatório. Só toca nas tarefas do seed.
+
+## Relatório de Alteração de Software
+
+Segundo documento da aplicação, independente do relatório semanal: `ChangeReport`,
+`ChangeReportController`, `ChangeTemplateBuilder`, `ChangeDocxGenerator`, `ChangeReportOpener`,
+e as tabelas `change_reports`, `change_report_activities`, `change_report_versions`,
+`change_report_exports`, `change_report_emails`.
+
+O original é `storage/templates/Relatorio_Alteracao_Software.docx` (nunca alterado) e o template
+construído é `..._template.docx`, com **28 marcadores**. `ChangeTemplateBuilder` conta com
+**19 tabelas** e localiza as secções pela posição; acrescentar ou remover uma tabela no original
+obriga a rever `aplicarMarcadores()`. Não há zebra a repor: as linhas de dados do original não
+têm sombreado.
+
+Pontos que condicionam alterações:
+
+- **O ciclo é `rascunho → em_aprovacao → aprovado | alteracoes_pedidas`, com reabertura.** Não é
+  um congelamento como o do relatório semanal: o documento é feito para voltar atrás.
+- **Cada versão guarda o conteúdo completo em `conteudo_json`**, incluindo as linhas de
+  acompanhamento — nunca um diff. É o que permite ler o documento tal como foi aprovado depois
+  de ele ter mudado. `guardarVersao()` recusa gravar quando o conteúdo é igual ao da última
+  versão, exceto com `$mesmoSemMudancas = true`, que as mudanças de estado usam.
+- **A abertura automática nunca faz falhar o que a originou.** Em `ProjectController::criar()` e
+  `TaskController::criar()` está dentro de try/catch: uma falha vira aviso, não erro.
+- **`ChangeReportOpener::registarAbertura()` grava a versão 1**, para que nenhuma via de abertura
+  fique sem o primeiro ponto do histórico.
+- **As caixas de opção do documento são reconstruídas por inteiro** (`ChangeDocxGenerator::opcoes()`),
+  com `☒` na escolhida e `☐` nas restantes, separadas por três espaços como no original.
+- **Eliminar apaga ficheiros do disco**, com a mesma contenção por `realpath()` do relatório
+  semanal, e a base de dados é limpa primeiro.
+
+Decidir (aprovar / pedir alterações) é rota de `admin`; o resto é `auth` com verificação de
+autoria no controlador.
 
 ## Assistências por departamento
 

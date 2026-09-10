@@ -77,4 +77,14 @@ return [
         'saida'    => $raiz . DIRECTORY_SEPARATOR
             . str_replace('/', DIRECTORY_SEPARATOR, (string) $env('REPORT_OUTPUT', 'storage/reports')),
     ],
+    'alteracao' => [
+        // Documento original do Relatório de Alteração de Software. Nunca é
+        // alterado: o template com marcadores é uma cópia sua.
+        'origem'   => $raiz . DIRECTORY_SEPARATOR
+            . str_replace('/', DIRECTORY_SEPARATOR, (string) $env('CHANGE_SOURCE', 'storage/templates/Relatorio_Alteracao_Software.docx')),
+        'template' => $raiz . DIRECTORY_SEPARATOR
+            . str_replace('/', DIRECTORY_SEPARATOR, (string) $env('CHANGE_TEMPLATE', 'storage/templates/Relatorio_Alteracao_Software_template.docx')),
+        'saida'    => $raiz . DIRECTORY_SEPARATOR
+            . str_replace('/', DIRECTORY_SEPARATOR, (string) $env('CHANGE_OUTPUT', 'storage/reports/alteracoes')),
+    ],
 ];
