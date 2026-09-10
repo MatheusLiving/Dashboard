@@ -138,6 +138,7 @@ Registos que o deslocamento empurraria para depois de hoje ficam no dia de hoje.
 | `php database/migrate.php --forcar` | Reexecuta todas as migrações (apenas em desenvolvimento) |
 | `php database/seed.php` | Executa todos os seeds |
 | `php database/seed.php 03_tags` | Executa apenas o seed indicado |
+| `php database/seed.php 07_departments` | Cria a lista inicial de departamentos |
 | `php bin/preparar-template.php` | Constrói o template .docx com os marcadores |
 | `php bin/preparar-template.php --verificar` | Confere os marcadores do template |
 | `composer install` | Instala as dependências |
@@ -250,6 +251,57 @@ agrupadas por projeto, com as tarefas sem projeto no fim.
 uma delas grava o movimento pelo mesmo ponto de entrada que o quadro usa, incluindo o
 preenchimento automático da data de conclusão se a coluna for terminal. A tarefa desaparece
 então do backlog, e um grupo de projeto que fique sem tarefas sai da página.
+
+---
+
+## Assistências por departamento
+
+Em `/departamentos`, um quadro informativo da equipa: quem é que nos pede mais assistência
+técnica. **Nada daqui entra no relatório semanal** — é uma leitura interna, para sabermos de
+onde vem o trabalho.
+
+### O que é um voto
+
+Cada voto é **um pedido de assistência atribuído a um departamento**, registado por quem o
+atendeu. Não é um inquérito de opinião: se o Financeiro ligar três vezes na mesma manhã,
+registam-se três. Pode juntar-se uma nota curta («impressora da contabilidade sem rede»), que
+serve para reconhecer o registo mais tarde e não entra em conta nenhuma.
+
+Há duas formas de registar, e ambas dão no mesmo:
+
+- o **formulário** no topo, com seletor de departamento e nota;
+- o botão **+1** ao lado de cada departamento da classificação, para o caso corrente.
+
+Registar está aberto a toda a equipa, porque é toda a equipa que atende os pedidos. O autor vem
+sempre da sessão, nunca do pedido.
+
+### A classificação
+
+A tabela mostra a contagem do período escolhido — **esta semana** (semana ISO), **este mês**,
+**este ano** ou **desde sempre** —, a percentagem do total e uma barra proporcional ao primeiro
+classificado. É relativa ao primeiro e não ao total de propósito: com oito ou dez departamentos,
+barras calculadas sobre o total ficariam todas rasteiras e o quadro deixaria de se ler.
+
+Os departamentos sem votos no período aparecem na mesma, com zero — saber quem não pede ajuda é
+tão informativo como saber quem pede.
+
+Ao lado ficam a evolução das últimas 8 semanas, quem registou quantas assistências no período e
+os últimos registos, com a data, o autor e a nota.
+
+### Enganos
+
+Qualquer registo pode ser anulado a partir da lista dos últimos registos, por quem o fez ou por
+um administrador. Uma contagem só é útil enquanto for verdadeira.
+
+### Gerir a lista
+
+A secção de gestão, no fim da página, é só para administradores: criar departamentos, renomeá-los,
+mudar a cor, desativar e eliminar.
+
+**Desativar** tira o departamento do quadro de registo — deixa de aparecer no seletor e de ter
+botão +1 — mas os votos que já tinha continuam a contar, e o nome continua a aparecer nos
+registos antigos. **Eliminar** só é possível enquanto o departamento não tiver assistências
+registadas; a partir daí, o caminho é desativar, para não apagar a contagem.
 
 ---
 
@@ -418,8 +470,13 @@ diretamente na consola pode gravar texto em dupla codificação (`Migração` a 
 Para detetar um caso destes:
 
 ```sql
-SELECT id, nome FROM projects WHERE nome <> CONVERT(CONVERT(nome USING latin1) USING utf8mb4);
+SELECT id, nome FROM projects
+WHERE nome <> CONVERT(CONVERT(nome USING latin1) USING utf8mb4) COLLATE utf8mb4_unicode_ci;
 ```
+
+O `COLLATE` no fim não é decoração: sem ele, o MySQL 8 compara `utf8mb4_unicode_ci` com o
+`utf8mb4_0900_ai_ci` que o `CONVERT` produz e recusa a consulta com
+«Illegal mix of collations».
 
 ---
 
@@ -556,6 +613,7 @@ Os comentários do código seguem a mesma norma. O fuso horário é `Europe/Lisb
 | `/kanban` | Quadro com arrastar e largar | autenticados |
 | `/backlog` | Tarefas por planear, por projeto | autenticados |
 | `/projetos`, `/projetos/{id}` | Projetos e detalhe | autenticados |
+| `/departamentos` | Quadro de assistências por departamento | autenticados |
 | `/relatorios` | Listagem (membro vê os seus) | autenticados |
 | `/relatorios/nova` | Formulário pré-preenchido | autenticados |
 | `/relatorios/{id}` | Vista do relatório e ficheiros | dono ou administrador |

@@ -13,6 +13,7 @@ use App\Controllers\AuditController;
 use App\Controllers\AuthController;
 use App\Controllers\BacklogController;
 use App\Controllers\DashboardController;
+use App\Controllers\DepartmentController;
 use App\Controllers\KanbanController;
 use App\Controllers\ProjectController;
 use App\Controllers\ReportController;
@@ -105,6 +106,18 @@ $router->post('/projetos', [ProjectController::class, 'criar'], ['auth']);
 $router->get('/projetos/{id}', [ProjectController::class, 'mostrar'], ['auth']);
 $router->post('/projetos/{id}', [ProjectController::class, 'atualizar'], ['auth']);
 $router->post('/projetos/{id}/arquivar', [ProjectController::class, 'alternarArquivo'], ['auth']);
+
+// --- Assistências por departamento ------------------------------------------
+// Quadro informativo da equipa; nada daqui entra no relatório semanal.
+$router->get('/departamentos', [DepartmentController::class, 'index'], ['auth']);
+// «voto» é literal: tem de ser registada antes de /departamentos/{id}, senão
+// seria lida como identificador de departamento.
+$router->post('/departamentos/voto', [DepartmentController::class, 'votar'], ['auth']);
+$router->post('/departamentos/votos/{id}/anular', [DepartmentController::class, 'anularVoto'], ['auth']);
+$router->post('/departamentos', [DepartmentController::class, 'criar'], ['admin']);
+$router->post('/departamentos/{id}', [DepartmentController::class, 'atualizar'], ['admin']);
+$router->post('/departamentos/{id}/alternar', [DepartmentController::class, 'alternar'], ['admin']);
+$router->post('/departamentos/{id}/eliminar', [DepartmentController::class, 'eliminar'], ['admin']);
 
 // --- Relatório semanal ------------------------------------------------------
 // A rota de criação vem antes da de detalhe: «nova» não é um identificador.

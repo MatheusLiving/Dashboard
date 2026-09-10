@@ -177,6 +177,7 @@ final class AuditLog
             'tarefa'         => 'Tarefa',
             'projeto'        => 'Projeto',
             'etiqueta'       => 'Etiqueta',
+            'departamento'   => 'Departamento',
             'utilizador'     => 'Utilizador',
             'relatorio'      => 'Relatório',
             'registo_tempo'  => 'Registo de tempo',

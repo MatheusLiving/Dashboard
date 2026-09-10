@@ -62,7 +62,8 @@ do alcance do servidor web.
 **Rotas.** Registadas em `public/index.php` com `$router->get/post($padrao, [Controlador::class,
 'metodo'], ['auth'|'admin'])`. Segmentos dinâmicos são `{id}`. A ordem importa: **rotas literais
 têm de vir antes das dinâmicas** — `/relatorios/nova` e `/relatorios/download` estão registadas
-antes de `/relatorios/{id}`, senão «nova» seria lido como identificador.
+antes de `/relatorios/{id}`, e `POST /departamentos/voto` antes de `POST /departamentos/{id}`,
+senão «nova» e «voto» seriam lidos como identificadores.
 
 **Sessões em base de dados** (tabela `sessions`), via `SessionHandler` que implementa
 `SessionHandlerInterface`, `SessionIdInterface` e `SessionUpdateTimestampHandlerInterface`.
@@ -121,8 +122,13 @@ sem `--default-character-set=utf8mb4` grava texto em dupla codificação (`Migra
 `MigraÃ§Ã£o`). Prefira fazer a alteração pela aplicação. Deteção:
 
 ```sql
-SELECT id, nome FROM projects WHERE nome <> CONVERT(CONVERT(nome USING latin1) USING utf8mb4);
+SELECT id, nome FROM projects
+WHERE nome <> CONVERT(CONVERT(nome USING latin1) USING utf8mb4) COLLATE utf8mb4_unicode_ci;
 ```
+
+O `COLLATE` no fim não é decoração: sem ele, o MySQL 8 compara `utf8mb4_unicode_ci` com o
+`utf8mb4_0900_ai_ci` que o `CONVERT` produz e recusa a consulta com
+«Illegal mix of collations».
 
 **Auditoria nunca faz falhar a operação.** Se o registo em `audit_log` falhar, o erro vai para o
 log e o trabalho do utilizador segue. O `AuditLogger` guarda só os campos que mudaram e **nunca**
@@ -137,6 +143,27 @@ mantém-se.
 **Seeds idempotentes com datas móveis.** `06_tasks.php` não recria tarefas já existentes, mas
 desloca as datas dos registos de tempo e do histórico para a **semana ISO corrente**, para que os
 dados de exemplo continuem a servir para testar o relatório. Só toca nas tarefas do seed.
+
+## Assistências por departamento
+
+`/departamentos` é um quadro informativo da equipa — quem pede mais assistência técnica — e
+**não tem qualquer ligação ao relatório semanal**. Se acrescentar algo aqui, mantenha-o assim:
+`ReportBuilder`, `DocxGenerator` e `TemplateBuilder` não conhecem `Department`, e o template
+`.docx` continua com os mesmos 24 marcadores.
+
+Um voto é um pedido de assistência, não uma opinião: a mesma pessoa regista quantos forem
+precisos, e cada linha de `department_votes` guarda a data, que é o que permite contar por
+semana ISO, por mês ou desde sempre. O autor vem da sessão.
+
+Dois pontos que condicionam alterações:
+
+- **A janela temporal de `Department::classificacao()` vive no `ON` do `LEFT JOIN`, não no
+  `WHERE`.** No `WHERE`, o `LEFT JOIN` passaria a comportar-se como `INNER` e os departamentos
+  sem votos no período desapareciam do quadro — precisamente os que interessa ver a zero.
+- **Um departamento desativado sai do quadro de registo mas não do histórico.** Deixa de ter
+  botão +1 e de aparecer no seletor; os votos antigos continuam a contar e o nome continua a
+  aparecer nos últimos registos. Eliminar só é permitido sem votos, porque a `FK` é
+  `ON DELETE CASCADE` e levaria a contagem à frente.
 
 ## Geração do .docx
 
