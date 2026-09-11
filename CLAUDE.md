@@ -109,6 +109,14 @@ com contenção por `realpath()` dentro da pasta de relatórios — um caminho g
 para fora é ignorado. A ordem importa: base de dados primeiro, ficheiros depois. Pela ordem
 inversa, uma falha na eliminação deixaria registos a apontar para ficheiros já apagados.
 
+**O arranque inteiro corre dentro do `try` do front-controller.** `Session::iniciar()` já toca
+na base de dados — as sessões vivem lá —, por isso deixá-lo fora do tratamento de erros fazia
+uma base de dados em baixo produzir um erro fatal em bruto, com o DSN e o utilizador da base de
+dados à vista. `Database` lança `DatabaseUnavailableException` (classe própria, para não andar a
+comparar mensagens) e `public/index.php` apanha-a à parte: 503 e `views/errors/bd.php`, uma
+página autónoma que não usa layout, sessão nem `View`, porque nada disso funciona sem base de
+dados. Se acrescentar arranque novo, mantenha-o dentro do `try`.
+
 **Semanas ISO-8601.** Segunda a domingo; todos os cálculos passam por `App\Core\Semana`
 (`DateTimeImmutable::setISODate()`). A coluna `ano` de `reports` guarda o **ano ISO**, que pode
 não coincidir com o ano civil na viragem do ano. Um relatório por colaborador e por semana é

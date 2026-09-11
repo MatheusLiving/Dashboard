@@ -110,6 +110,22 @@ docker compose up -d
 | Aplicação | <http://localhost:8080> |
 | phpMyAdmin | <http://localhost:8081> |
 
+### Se a aplicação não ligar à base de dados
+
+A aplicação responde **503** com uma página que explica o que verificar, em vez de um erro
+fatal. Na esmagadora maioria dos casos é o MySQL que não está de pé:
+
+```bash
+docker compose up -d mysql     # arranca o contentor
+docker ps                      # confirma que está a correr e saudável
+```
+
+Com Docker Desktop, o próprio Docker tem de estar aberto — o contentor não arranca sem ele.
+Depois de uma reinicialização da máquina é o caso mais comum.
+
+Os dados não se perdem: vivem no volume `mysql_dados`, que sobrevive a parar, arrancar e até
+recriar o contentor.
+
 ---
 
 ## Credenciais de teste

@@ -49,7 +49,7 @@ final class Database
                 self::opcoes()
             );
         } catch (PDOException $e) {
-            throw new RuntimeException(
+            throw new DatabaseUnavailableException(
                 'Não foi possível ligar à base de dados: ' . $e->getMessage(),
                 0,
                 $e
@@ -72,12 +72,20 @@ final class Database
             (string) Config::get('db.charset', 'utf8mb4')
         );
 
-        return new PDO(
-            $dsn,
-            (string) Config::get('db.user', ''),
-            (string) Config::get('db.password', ''),
-            self::opcoes()
-        );
+        try {
+            return new PDO(
+                $dsn,
+                (string) Config::get('db.user', ''),
+                (string) Config::get('db.password', ''),
+                self::opcoes()
+            );
+        } catch (PDOException $e) {
+            throw new DatabaseUnavailableException(
+                'Não foi possível ligar ao servidor MySQL: ' . $e->getMessage(),
+                0,
+                $e
+            );
+        }
     }
 
     /**

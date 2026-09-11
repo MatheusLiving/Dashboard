@@ -24,6 +24,7 @@ use App\Controllers\TagController;
 use App\Controllers\TaskController;
 use App\Core\Auth;
 use App\Core\Config;
+use App\Core\DatabaseUnavailableException;
 use App\Core\Request;
 use App\Core\Response;
 use App\Core\Router;
@@ -63,121 +64,139 @@ ini_set('error_log', Config::raiz('storage/logs/php.log'));
 error_reporting(E_ALL);
 
 Response::cabecalhosSeguranca();
-Session::iniciar();
 
-// Disponibiliza o utilizador autenticado e o caminho atual a todas as vistas.
-View::partilhar('utilizadorAtual', Auth::utilizador());
-View::partilhar('caminhoAtual', Request::caminho());
-// O nome vem das configurações; o .env serve de recurso enquanto não houver uma.
-View::partilhar('nomeApp', Setting::departamento((string) Config::get('app.nome', 'Departamento de TI')));
-
-$router = new Router();
-
-// --- Autenticação -----------------------------------------------------------
-$router->get('/login', [AuthController::class, 'formulario'], ['convidado']);
-$router->post('/login', [AuthController::class, 'autenticar'], ['convidado']);
-$router->post('/logout', [AuthController::class, 'terminar'], ['auth']);
-
-// --- Painel -----------------------------------------------------------------
-$router->get('/', [DashboardController::class, 'index'], ['auth']);
-
-// --- Perfil do próprio utilizador -------------------------------------------
-$router->get('/perfil', [AuthController::class, 'perfil'], ['auth']);
-$router->post('/perfil', [AuthController::class, 'guardarPerfil'], ['auth']);
-$router->post('/perfil/senha', [AuthController::class, 'alterarSenha'], ['auth']);
-
-// --- Quadro Kanban ----------------------------------------------------------
-$router->get('/kanban', [KanbanController::class, 'index'], ['auth']);
-
-// --- Tarefas (JSON, consumidas pelo quadro) ---------------------------------
-$router->get('/api/tarefas/{id}', [TaskController::class, 'mostrar'], ['auth']);
-$router->post('/api/tarefas', [TaskController::class, 'criar'], ['auth']);
-$router->post('/api/tarefas/{id}', [TaskController::class, 'atualizar'], ['auth']);
-$router->post('/api/tarefas/{id}/mover', [TaskController::class, 'mover'], ['auth']);
-$router->post('/api/tarefas/{id}/eliminar', [TaskController::class, 'eliminar'], ['auth']);
-$router->post('/api/tarefas/{id}/tempo', [TaskController::class, 'registarTempo'], ['auth']);
-$router->post('/api/tempo/{id}/eliminar', [TaskController::class, 'eliminarTempo'], ['auth']);
-
-// --- Backlog ----------------------------------------------------------------
-$router->get('/backlog', [BacklogController::class, 'index'], ['auth']);
-
-// --- Projetos ---------------------------------------------------------------
-$router->get('/projetos', [ProjectController::class, 'index'], ['auth']);
-$router->post('/projetos', [ProjectController::class, 'criar'], ['auth']);
-$router->get('/projetos/{id}', [ProjectController::class, 'mostrar'], ['auth']);
-$router->post('/projetos/{id}', [ProjectController::class, 'atualizar'], ['auth']);
-$router->post('/projetos/{id}/arquivar', [ProjectController::class, 'alternarArquivo'], ['auth']);
-
-// --- Assistências por departamento ------------------------------------------
-// Quadro informativo da equipa; nada daqui entra no relatório semanal.
-$router->get('/departamentos', [DepartmentController::class, 'index'], ['auth']);
-// «voto» é literal: tem de ser registada antes de /departamentos/{id}, senão
-// seria lida como identificador de departamento.
-$router->post('/departamentos/voto', [DepartmentController::class, 'votar'], ['auth']);
-$router->post('/departamentos/votos/{id}/anular', [DepartmentController::class, 'anularVoto'], ['auth']);
-$router->post('/departamentos', [DepartmentController::class, 'criar'], ['admin']);
-$router->post('/departamentos/{id}', [DepartmentController::class, 'atualizar'], ['admin']);
-$router->post('/departamentos/{id}/alternar', [DepartmentController::class, 'alternar'], ['admin']);
-$router->post('/departamentos/{id}/eliminar', [DepartmentController::class, 'eliminar'], ['admin']);
-
-// --- Relatório semanal ------------------------------------------------------
-// A rota de criação vem antes da de detalhe: «nova» não é um identificador.
-$router->get('/relatorios', [ReportController::class, 'index'], ['auth']);
-$router->get('/relatorios/nova', [ReportController::class, 'nova'], ['auth']);
-$router->post('/relatorios', [ReportController::class, 'guardar'], ['auth']);
-$router->get('/api/relatorios/pre-preencher', [ReportController::class, 'prePreencher'], ['auth']);
-// «download» vem antes de «{id}»: a rota literal tem de ganhar à dinâmica.
-$router->get('/relatorios/download', [ReportController::class, 'download'], ['auth']);
-$router->get('/relatorios/{id}', [ReportController::class, 'mostrar'], ['auth']);
-$router->get('/relatorios/{id}/editar', [ReportController::class, 'editar'], ['auth']);
-$router->post('/relatorios/{id}/gerar', [ReportController::class, 'gerar'], ['auth']);
-$router->post('/relatorios/{id}/reabrir', [ReportController::class, 'reabrir'], ['auth']);
-$router->post('/relatorios/{id}/email', [ReportController::class, 'enviarEmail'], ['auth']);
-$router->post('/relatorios/{id}/eliminar', [ReportController::class, 'eliminar'], ['auth']);
-
-// --- Relatório de Alteração de Software -------------------------------------
-// «abrir», «download» e «versoes» são literais: têm de ser registadas antes
-// das rotas com {id}, senão seriam lidas como identificadores.
-$router->get('/alteracoes', [ChangeReportController::class, 'index'], ['auth']);
-$router->get('/alteracoes/download', [ChangeReportController::class, 'download'], ['auth']);
-$router->get('/alteracoes/versoes/{id}', [ChangeReportController::class, 'versao'], ['auth']);
-$router->get('/alteracoes/{id}', [ChangeReportController::class, 'mostrar'], ['auth']);
-$router->get('/alteracoes/{id}/editar', [ChangeReportController::class, 'editar'], ['auth']);
-$router->post('/alteracoes/abrir', [ChangeReportController::class, 'abrir'], ['auth']);
-$router->post('/alteracoes/{id}', [ChangeReportController::class, 'guardar'], ['auth']);
-$router->post('/alteracoes/{id}/aprovacao', [ChangeReportController::class, 'enviarAprovacao'], ['auth']);
-// Decidir é do administrador: quem escreve o relatório não o aprova a si próprio.
-$router->post('/alteracoes/{id}/aprovar', [ChangeReportController::class, 'aprovar'], ['admin']);
-$router->post('/alteracoes/{id}/alteracoes', [ChangeReportController::class, 'pedirAlteracoes'], ['admin']);
-$router->post('/alteracoes/{id}/reabrir', [ChangeReportController::class, 'reabrir'], ['auth']);
-$router->post('/alteracoes/{id}/gerar', [ChangeReportController::class, 'gerar'], ['auth']);
-$router->post('/alteracoes/{id}/email', [ChangeReportController::class, 'enviarEmail'], ['auth']);
-$router->post('/alteracoes/{id}/eliminar', [ChangeReportController::class, 'eliminar'], ['auth']);
-
-// --- Etiquetas --------------------------------------------------------------
-$router->get('/api/tags', [TagController::class, 'apiListar'], ['auth']);
-$router->post('/api/tags', [TagController::class, 'apiCriar'], ['auth']);
-
-$router->get('/tags', [TagController::class, 'index'], ['admin']);
-$router->post('/tags', [TagController::class, 'criar'], ['admin']);
-$router->post('/tags/{id}', [TagController::class, 'atualizar'], ['admin']);
-$router->post('/tags/{id}/alternar', [TagController::class, 'alternar'], ['admin']);
-$router->post('/tags/{id}/eliminar', [TagController::class, 'eliminar'], ['admin']);
-
-// --- Administração ----------------------------------------------------------
-$router->get('/utilizadores', [UserController::class, 'index'], ['admin']);
-$router->post('/utilizadores', [UserController::class, 'criar'], ['admin']);
-$router->post('/utilizadores/{id}', [UserController::class, 'atualizar'], ['admin']);
-$router->post('/utilizadores/{id}/ativo', [UserController::class, 'alternarAtivo'], ['admin']);
-$router->post('/utilizadores/{id}/senha', [UserController::class, 'redefinirSenha'], ['admin']);
-
-$router->get('/configuracoes', [SettingsController::class, 'index'], ['admin']);
-$router->post('/configuracoes', [SettingsController::class, 'guardar'], ['admin']);
-
-$router->get('/auditoria', [AuditController::class, 'index'], ['admin']);
-
+// A partir daqui tudo corre dentro do try: o arranque da sessão já toca na
+// base de dados (as sessões vivem lá), e uma base de dados em baixo produzia
+// um erro fatal em bruto — com o DSN e o utilizador à vista — por acontecer
+// antes de qualquer tratamento de erros.
 try {
+    Session::iniciar();
+
+    // Disponibiliza o utilizador autenticado e o caminho atual a todas as vistas.
+    View::partilhar('utilizadorAtual', Auth::utilizador());
+    View::partilhar('caminhoAtual', Request::caminho());
+    // O nome vem das configurações; o .env serve de recurso enquanto não houver uma.
+    View::partilhar('nomeApp', Setting::departamento((string) Config::get('app.nome', 'Departamento de TI')));
+
+    $router = new Router();
+
+    // --- Autenticação -----------------------------------------------------------
+    $router->get('/login', [AuthController::class, 'formulario'], ['convidado']);
+    $router->post('/login', [AuthController::class, 'autenticar'], ['convidado']);
+    $router->post('/logout', [AuthController::class, 'terminar'], ['auth']);
+
+    // --- Painel -----------------------------------------------------------------
+    $router->get('/', [DashboardController::class, 'index'], ['auth']);
+
+    // --- Perfil do próprio utilizador -------------------------------------------
+    $router->get('/perfil', [AuthController::class, 'perfil'], ['auth']);
+    $router->post('/perfil', [AuthController::class, 'guardarPerfil'], ['auth']);
+    $router->post('/perfil/senha', [AuthController::class, 'alterarSenha'], ['auth']);
+
+    // --- Quadro Kanban ----------------------------------------------------------
+    $router->get('/kanban', [KanbanController::class, 'index'], ['auth']);
+
+    // --- Tarefas (JSON, consumidas pelo quadro) ---------------------------------
+    $router->get('/api/tarefas/{id}', [TaskController::class, 'mostrar'], ['auth']);
+    $router->post('/api/tarefas', [TaskController::class, 'criar'], ['auth']);
+    $router->post('/api/tarefas/{id}', [TaskController::class, 'atualizar'], ['auth']);
+    $router->post('/api/tarefas/{id}/mover', [TaskController::class, 'mover'], ['auth']);
+    $router->post('/api/tarefas/{id}/eliminar', [TaskController::class, 'eliminar'], ['auth']);
+    $router->post('/api/tarefas/{id}/tempo', [TaskController::class, 'registarTempo'], ['auth']);
+    $router->post('/api/tempo/{id}/eliminar', [TaskController::class, 'eliminarTempo'], ['auth']);
+
+    // --- Backlog ----------------------------------------------------------------
+    $router->get('/backlog', [BacklogController::class, 'index'], ['auth']);
+
+    // --- Projetos ---------------------------------------------------------------
+    $router->get('/projetos', [ProjectController::class, 'index'], ['auth']);
+    $router->post('/projetos', [ProjectController::class, 'criar'], ['auth']);
+    $router->get('/projetos/{id}', [ProjectController::class, 'mostrar'], ['auth']);
+    $router->post('/projetos/{id}', [ProjectController::class, 'atualizar'], ['auth']);
+    $router->post('/projetos/{id}/arquivar', [ProjectController::class, 'alternarArquivo'], ['auth']);
+
+    // --- Assistências por departamento ------------------------------------------
+    // Quadro informativo da equipa; nada daqui entra no relatório semanal.
+    $router->get('/departamentos', [DepartmentController::class, 'index'], ['auth']);
+    // «voto» é literal: tem de ser registada antes de /departamentos/{id}, senão
+    // seria lida como identificador de departamento.
+    $router->post('/departamentos/voto', [DepartmentController::class, 'votar'], ['auth']);
+    $router->post('/departamentos/votos/{id}/anular', [DepartmentController::class, 'anularVoto'], ['auth']);
+    $router->post('/departamentos', [DepartmentController::class, 'criar'], ['admin']);
+    $router->post('/departamentos/{id}', [DepartmentController::class, 'atualizar'], ['admin']);
+    $router->post('/departamentos/{id}/alternar', [DepartmentController::class, 'alternar'], ['admin']);
+    $router->post('/departamentos/{id}/eliminar', [DepartmentController::class, 'eliminar'], ['admin']);
+
+    // --- Relatório semanal ------------------------------------------------------
+    // A rota de criação vem antes da de detalhe: «nova» não é um identificador.
+    $router->get('/relatorios', [ReportController::class, 'index'], ['auth']);
+    $router->get('/relatorios/nova', [ReportController::class, 'nova'], ['auth']);
+    $router->post('/relatorios', [ReportController::class, 'guardar'], ['auth']);
+    $router->get('/api/relatorios/pre-preencher', [ReportController::class, 'prePreencher'], ['auth']);
+    // «download» vem antes de «{id}»: a rota literal tem de ganhar à dinâmica.
+    $router->get('/relatorios/download', [ReportController::class, 'download'], ['auth']);
+    $router->get('/relatorios/{id}', [ReportController::class, 'mostrar'], ['auth']);
+    $router->get('/relatorios/{id}/editar', [ReportController::class, 'editar'], ['auth']);
+    $router->post('/relatorios/{id}/gerar', [ReportController::class, 'gerar'], ['auth']);
+    $router->post('/relatorios/{id}/reabrir', [ReportController::class, 'reabrir'], ['auth']);
+    $router->post('/relatorios/{id}/email', [ReportController::class, 'enviarEmail'], ['auth']);
+    $router->post('/relatorios/{id}/eliminar', [ReportController::class, 'eliminar'], ['auth']);
+
+    // --- Relatório de Alteração de Software -------------------------------------
+    // «abrir», «download» e «versoes» são literais: têm de ser registadas antes
+    // das rotas com {id}, senão seriam lidas como identificadores.
+    $router->get('/alteracoes', [ChangeReportController::class, 'index'], ['auth']);
+    $router->get('/alteracoes/download', [ChangeReportController::class, 'download'], ['auth']);
+    $router->get('/alteracoes/versoes/{id}', [ChangeReportController::class, 'versao'], ['auth']);
+    $router->get('/alteracoes/{id}', [ChangeReportController::class, 'mostrar'], ['auth']);
+    $router->get('/alteracoes/{id}/editar', [ChangeReportController::class, 'editar'], ['auth']);
+    $router->post('/alteracoes/abrir', [ChangeReportController::class, 'abrir'], ['auth']);
+    $router->post('/alteracoes/{id}', [ChangeReportController::class, 'guardar'], ['auth']);
+    $router->post('/alteracoes/{id}/aprovacao', [ChangeReportController::class, 'enviarAprovacao'], ['auth']);
+    // Decidir é do administrador: quem escreve o relatório não o aprova a si próprio.
+    $router->post('/alteracoes/{id}/aprovar', [ChangeReportController::class, 'aprovar'], ['admin']);
+    $router->post('/alteracoes/{id}/alteracoes', [ChangeReportController::class, 'pedirAlteracoes'], ['admin']);
+    $router->post('/alteracoes/{id}/reabrir', [ChangeReportController::class, 'reabrir'], ['auth']);
+    $router->post('/alteracoes/{id}/gerar', [ChangeReportController::class, 'gerar'], ['auth']);
+    $router->post('/alteracoes/{id}/email', [ChangeReportController::class, 'enviarEmail'], ['auth']);
+    $router->post('/alteracoes/{id}/eliminar', [ChangeReportController::class, 'eliminar'], ['auth']);
+
+    // --- Etiquetas --------------------------------------------------------------
+    $router->get('/api/tags', [TagController::class, 'apiListar'], ['auth']);
+    $router->post('/api/tags', [TagController::class, 'apiCriar'], ['auth']);
+
+    $router->get('/tags', [TagController::class, 'index'], ['admin']);
+    $router->post('/tags', [TagController::class, 'criar'], ['admin']);
+    $router->post('/tags/{id}', [TagController::class, 'atualizar'], ['admin']);
+    $router->post('/tags/{id}/alternar', [TagController::class, 'alternar'], ['admin']);
+    $router->post('/tags/{id}/eliminar', [TagController::class, 'eliminar'], ['admin']);
+
+    // --- Administração ----------------------------------------------------------
+    $router->get('/utilizadores', [UserController::class, 'index'], ['admin']);
+    $router->post('/utilizadores', [UserController::class, 'criar'], ['admin']);
+    $router->post('/utilizadores/{id}', [UserController::class, 'atualizar'], ['admin']);
+    $router->post('/utilizadores/{id}/ativo', [UserController::class, 'alternarAtivo'], ['admin']);
+    $router->post('/utilizadores/{id}/senha', [UserController::class, 'redefinirSenha'], ['admin']);
+
+    $router->get('/configuracoes', [SettingsController::class, 'index'], ['admin']);
+    $router->post('/configuracoes', [SettingsController::class, 'guardar'], ['admin']);
+
+    $router->get('/auditoria', [AuditController::class, 'index'], ['admin']);
+
     $router->despachar();
+} catch (DatabaseUnavailableException $e) {
+    // Caso à parte: não é um erro da aplicação, é infraestrutura em baixo. A
+    // página diz o que fazer em vez de pedir para contactar o administrador —
+    // quem está a desenvolver é normalmente a mesma pessoa.
+    error_log(sprintf('[%s] Base de dados indisponível: %s', date('Y-m-d H:i:s'), $e->getMessage()));
+
+    Response::estado(503);
+
+    if (Request::esperaJson()) {
+        Response::erroJson('A base de dados não está disponível.', 503);
+    }
+
+    require dirname(__DIR__) . '/views/errors/bd.php';
 } catch (Throwable $e) {
     error_log(sprintf(
         '[%s] %s em %s:%d%s%s',
